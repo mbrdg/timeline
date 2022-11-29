@@ -1,0 +1,26 @@
+{
+  "name": "timeline",
+  "version": "1.0.0",
+  "description": "Decentralized timeline service",
+  "main": "index.js",
+  "directories": {
+    "doc": "doc"
+  },
+  "scripts": {
+    "start": "npx tsc && node build/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://git.fe.up.pt/sdle/2022/t4/g14/proj2"
+  },
+  "keywords": [
+    "decentralized"
+  ],
+  "author": "t4g14",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^18.11.9",
+    "typescript": "^4.9.3"
+  }
+}
