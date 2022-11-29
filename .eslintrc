@@ -1,0 +1,22 @@
+{
+    "env": {
+        "browser": true,
+        "commonjs": true,
+        "es2022": true,
+        "node": true
+    },
+    "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/recommended",
+        "plugin:@typescript-eslint/recommended-requiring-type-checking",
+        "plugin:@typescript-eslint/strict"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "plugins": ["@typescript-eslint"],
+    "parserOptions": {
+        "ecmaVersion": 2022,
+        "project": "./tsconfig.json"
+    },
+    "rules": {
+    }
+}
