@@ -17,6 +17,10 @@ app.get('/id', (_req, res) => {
     res.status(200).send(self.id);
 });
 
+app.post('/register', (_req, res) => {
+    res.status(501).send('Not implemented yet.');
+});
+
 app.post('/publish', (req, res) => {
     const { handle, content } = req.body as Pick<TLPost, "handle" | "content">;
     const time = new Date();
@@ -30,7 +34,7 @@ app.post('/publish', (req, res) => {
     console.log(`🐦 Server received the following tweet at ${time.toDateString()}`);
     console.log(tweet);
 
-    res.status(201).send(`Tweet published successfully`)
+    res.status(201).send(`Tweet published successfully`);
 });
 
 
