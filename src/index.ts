@@ -17,6 +17,10 @@ app.get('/id', (_req, res) => {
     res.status(200).send(self.id);
 });
 
+app.get('/uptime', (_req, res) => {
+    res.status(200).send(self.uptime().toString());
+});
+
 app.get('/timeline', (_req, res) => {
     res.status(501).send('General timeline not implemented yet.');
 });
