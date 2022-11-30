@@ -1,22 +1,39 @@
 // SDLE @ M.EIC, 2022
-import { createServer } from "http";
-import Node from "./kademlia/node";
+// T4G14
+import express from 'express';
+
+import TLNode from "./kademlia/tlnode";
+import TLPost from "./kademlia/tlpost";
+
 
 const port = 8000;
-const self = new Node('localhost', port);
+const self = new TLNode('localhost', port);
 
-createServer((req, res) => {
+const app = express();
+app.use(express.json());
 
-    const { method, url } = req;
 
-    if (method === 'GET' && url === '/id') {
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.write(self.id)
-        res.end()
-    }
+app.get('/id', (_req, res) => {
+    res.status(200).send(self.id);
+});
 
-    res.writeHead(404);
-    res.end();
+app.post('/publish', (req, res) => {
+    const { handle, content } = req.body as Pick<TLPost, "handle" | "content">;
+    const time = new Date();
 
-}).listen(port)
+    const tweet: Readonly<TLPost> = {
+        handle: handle,
+        content: content,
+        timestamp: time
+    };
 
+    console.log(`🐦 Server received the following tweet at ${time.toDateString()}`);
+    console.log(tweet);
+
+    res.status(201).send(`Tweet published successfully`)
+});
+
+
+app.listen(port, () => {
+    console.info(`🐦 Server running at http://localhost:${port}`);
+});
