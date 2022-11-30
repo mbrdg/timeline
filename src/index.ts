@@ -17,8 +17,32 @@ app.get('/id', (_req, res) => {
     res.status(200).send(self.id);
 });
 
+app.get('/timeline', (_req, res) => {
+    res.status(501).send('General timeline not implemented yet.');
+});
+
+app.get('/timeline/:user', (_req, res) => {
+    res.status(501).send('Users\' timeline not implemented yet.');
+});
+
 app.post('/register', (_req, res) => {
-    res.status(501).send('Not implemented yet.');
+    res.status(501).send('Register not implemented yet.');
+});
+
+app.post('/follow', (_req, res) => {
+    res.status(501).send('Follow a new user not implemented yet.');
+});
+
+app.post('/retweet', (_req, res) => {
+    res.status(501).send('Retweet not implemented yet.');
+});
+
+app.post('/fav', (_req, res) => {
+    res.status(501).send('Fav not implemented yet.');
+});
+
+app.post('/comment', (_req, res) => {
+    res.status(501).send('Comments not implemented yet.');
 });
 
 app.post('/publish', (req, res) => {
