@@ -33,6 +33,7 @@
     "typescript": "^4.9.3"
   },
   "dependencies": {
+    "@libp2p/kad-dht": "^6.0.1",
     "express": "^4.18.2"
   }
 }
