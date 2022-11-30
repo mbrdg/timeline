@@ -2,24 +2,13 @@
 // T4G14
 import express from 'express';
 
-import TLNode from "./kademlia/tlnode";
-import TLPost from "./kademlia/tlpost";
+import TLPost from "./tlpost";
 
 
 const port = 8000;
-const self = new TLNode('localhost', port);
 
 const app = express();
 app.use(express.json());
-
-
-app.get('/id', (_req, res) => {
-    res.status(200).send(self.id);
-});
-
-app.get('/uptime', (_req, res) => {
-    res.status(200).send(self.uptime().toString());
-});
 
 app.get('/timeline', (_req, res) => {
     res.status(501).send('General timeline not implemented yet.');
