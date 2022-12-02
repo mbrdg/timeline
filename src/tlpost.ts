@@ -5,4 +5,6 @@ export default interface TLPost {
     handle: string;
     content: string;
     timestamp: Date;
+    reposts: number;
+    likes: number;
 }
