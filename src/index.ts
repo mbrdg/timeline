@@ -7,20 +7,28 @@ import { createLibp2p } from 'libp2p';
 import { tcp } from '@libp2p/tcp';
 import { noise } from '@chainsafe/libp2p-noise';
 import { mdns } from '@libp2p/mdns';
+import { mplex } from '@libp2p/mplex';
+import { kadDHT } from '@libp2p/kad-dht';
+import { CID } from 'multiformats/cid';
+import { sha256 as hasher } from 'multiformats/hashes/sha2';
 
 import type { PeerInfo } from '@libp2p/interface-peer-info';
 import type { Connection } from '@libp2p/interface-connection';
 
 import TLPost from './tlpost.js';
-import { kadDHT } from '@libp2p/kad-dht';
 
+const createCID = async (handle: string) => {
+    const bytes = new TextEncoder().encode(handle)
+    const hash = await hasher.digest(bytes);
+    return CID.createV1(hasher.code, hash);
+}
 
 const main = async () => {
 
     const encoder = new TextEncoder();
     const decoder = new TextDecoder("utf-8");
 
-    const [hostname, port]  = ['localhost', 0];
+    const [hostname, port] = ['localhost', 0];
     const app = express();
     app.use(express.json());
 
@@ -30,18 +38,21 @@ const main = async () => {
         },
         transports: [tcp()],
         connectionEncryption: [noise()],
+        streamMuxers: [mplex()],
         peerDiscovery: [mdns()],
         dht: kadDHT()
     });
 
     node.addEventListener('peer:discovery', (event) => {
         const peer = event.detail as PeerInfo;
-        console.log(`⚗️  Discovered peer ${peer.id}`);
+        node.peerStore.addressBook.set(peer.id, peer.multiaddrs)
+            .then()
+            .catch(console.error);
     });
 
     node.connectionManager.addEventListener('peer:connect', (event) => {
-       const connection = event.detail as Connection;
-       console.log(`✅ Connected peer ${connection.remotePeer.toString()}`);
+        const connection = event.detail as Connection;
+        console.log(`✅ Connected peer ${connection.remotePeer.toString()}`);
     });
     node.connectionManager.addEventListener('peer:disconnect', (event) => {
         const connection = event.detail as Connection;
@@ -50,6 +61,20 @@ const main = async () => {
 
     await node.start();
     console.info(`🐦 libp2p node has started`);
+
+    app.post('/register', (req, res) => {
+        void (async () => {
+            const handle = req.body as string;
+            const cid = await createCID(handle);
+            node.contentRouting.put(cid.bytes, []).then((post) => {
+                console.info(`🐦 Server received the following post`, post);
+                res.status(201).send(`Post published successfully`);
+            }).catch((err) => {
+                console.error(err);
+                res.status(400);
+            });
+        })();
+    });
 
     app.post('/publish', (req, res) => {
         const { handle, content } = req.body as Pick<TLPost, "handle" | "content">;
@@ -65,7 +90,6 @@ const main = async () => {
 
         const key = encoder.encode(`/post/${handle}`);
         const value = encoder.encode(JSON.stringify(post));
-
         node.contentRouting.put(key, value).then((post) => {
             console.info(`🐦 Server received the following post`, post);
             res.status(201).send(`Post published successfully`);
