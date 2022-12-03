@@ -45,13 +45,13 @@ const main = async () => {
 
     node.addEventListener('peer:discovery', (event) => {
         const peer = event.detail as PeerInfo;
-        // node.peerStore.addressBook.set(peer.id, peer.multiaddrs)
-        //     .then()
-        //     .catch(console.error);
-        /* dial them when we discover them */
-        node.dial(peer.id).catch(err => {
-            console.error(`Could not dial ${peer.id.toString()}`, err)
-        })
+
+        node.peerStore.addressBook
+            .set(peer.id, peer.multiaddrs)
+            .catch(console.error);
+
+        node.dial(peer.id)
+            .catch(console.error);
     });
 
     node.connectionManager.addEventListener('peer:connect', (event) => {
