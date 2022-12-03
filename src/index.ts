@@ -45,9 +45,13 @@ const main = async () => {
 
     node.addEventListener('peer:discovery', (event) => {
         const peer = event.detail as PeerInfo;
-        node.peerStore.addressBook.set(peer.id, peer.multiaddrs)
-            .then()
-            .catch(console.error);
+        // node.peerStore.addressBook.set(peer.id, peer.multiaddrs)
+        //     .then()
+        //     .catch(console.error);
+        /* dial them when we discover them */
+        node.dial(peer.id).catch(err => {
+            console.error(`Could not dial ${peer.id.toString()}`, err)
+        })
     });
 
     node.connectionManager.addEventListener('peer:connect', (event) => {
@@ -63,17 +67,26 @@ const main = async () => {
     console.info(`🐦 libp2p node has started`);
 
     app.post('/register', (req, res) => {
-        void (async () => {
-            const handle = req.body as string;
-            const cid = await createCID(handle);
-            node.contentRouting.put(cid.bytes, []).then((post) => {
-                console.info(`🐦 Server received the following post`, post);
-                res.status(201).send(`Post published successfully`);
-            }).catch((err) => {
-                console.error(err);
-                res.status(400);
-            });
-        })();
+        const handle = req.body.handle as string;
+        
+        const newUser = {
+            handle: handle,
+            following: [],
+            likes: [],
+            tweets: [],
+        }
+        
+        const key = encoder.encode(`/${handle}`);
+        const value = encoder.encode(JSON.stringify(newUser));
+        node.contentRouting.put(key, value).then(async () => {
+            console.info(`🐦 Server received the following user: `, newUser);
+            node.contentRouting.provide(await createCID(`/${handle}`))
+                .then(() => res.status(201).send(`User registered successfully`))
+                .catch((err) => { console.error(err); res.status(500); });
+        }).catch((err) => {
+            console.error(err);
+            res.status(400);
+        });
     });
 
     app.post('/publish', (req, res) => {
@@ -90,12 +103,27 @@ const main = async () => {
 
         const key = encoder.encode(`/post/${handle}`);
         const value = encoder.encode(JSON.stringify(post));
-        node.contentRouting.put(key, value).then((post) => {
-            console.info(`🐦 Server received the following post`, post);
-            res.status(201).send(`Post published successfully`);
+        node.contentRouting.put(key, value).then(async () => {
+            console.info(`🐦 Server received the following post: `, post);
+            node.contentRouting.provide(await createCID(`/post/${handle}`))
+                .then(() => res.status(201).send(`Post published successfully`))
+                .catch((err) => { console.error(err); res.status(500); });
         }).catch((err) => {
             console.error(err);
             res.status(400);
+        });
+    });
+
+    app.get('/:handle', (req, res) => {
+        const handle = req.params.handle;
+        const key = encoder.encode(`/${handle}`);
+
+        node.contentRouting.get(key).then((content) => {
+            const value = decoder.decode(content);
+            res.status(200).send(value);
+        }).catch((err) => {
+            console.error(err);
+            res.status(404);
         });
     });
 
