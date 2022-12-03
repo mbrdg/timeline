@@ -3,30 +3,34 @@
 
 import express from 'express';
 import { AddressInfo } from 'net';
+
 import { createLibp2p } from 'libp2p';
 import { tcp } from '@libp2p/tcp';
 import { noise } from '@chainsafe/libp2p-noise';
 import { mdns } from '@libp2p/mdns';
 import { mplex } from '@libp2p/mplex';
 import { kadDHT } from '@libp2p/kad-dht';
-import { CID } from 'multiformats/cid';
-import { sha256 as hasher } from 'multiformats/hashes/sha2';
 
 import type { PeerInfo } from '@libp2p/interface-peer-info';
 import type { Connection } from '@libp2p/interface-connection';
 
-import TLPost from './tlpost.js';
+import { CID } from 'multiformats/cid';
+import { sha256 } from 'multiformats/hashes/sha2';
 
-const createCID = async (handle: string) => {
-    const bytes = new TextEncoder().encode(handle)
-    const hash = await hasher.digest(bytes);
-    return CID.createV1(hasher.code, hash);
-}
+import TLPost from './tlpost.js';
+import TLUser, { TLUserHandle } from './tluser.js';
+
 
 const main = async () => {
 
     const encoder = new TextEncoder();
     const decoder = new TextDecoder("utf-8");
+
+    const createCID = (data: Readonly<Partial<TLUser | TLPost>>) => {
+        const bytes = encoder.encode(JSON.stringify(data));
+        const hash = sha256.digest(bytes) as Awaited<ReturnType<typeof sha256.digest>>;
+        return CID.createV1(sha256.code, hash);
+    }
 
     const [hostname, port] = ['localhost', 0];
     const app = express();
