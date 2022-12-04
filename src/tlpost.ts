@@ -14,6 +14,6 @@ export interface TLPost {
 }
 
 export interface TLInteraction {
-    readonly handle: TLUserHandle,
-    readonly postId: TLPostId
+    readonly handle: TLUserHandle;
+    readonly id: TLPostId;
 }

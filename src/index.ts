@@ -84,7 +84,7 @@ const main = async () => {
             reposts: new Array<TLPostId>(),
             likes: new Array<TLPostId>()
         };
-        console.log(`🐦 Server received the following registration request\n`, user);
+        console.log(`🐦 Received registration request\n`, user);
 
         const key = createCID({ handle: user.handle });
         const value = encoder.encode(JSON.stringify(user));
@@ -110,11 +110,11 @@ const main = async () => {
             .catch(() => res.sendStatus(404));
     });
 
-    app.get('/post/:postId', (req, res) => {
-        const postId : TLPostId = req.params.postId ;
-        const postKey = CID.parse(postId);
+    app.get('/post/:id', (req, res) => {
+        const { id } = req.params;
+        const key = CID.parse(id);
 
-        node.contentRouting.get(postKey.bytes)
+        node.contentRouting.get(key.bytes)
             .then(value => decoder.decode(value))
             .then(post => res.status(302).json(post))
             .catch(() => res.sendStatus(404));
@@ -129,93 +129,118 @@ const main = async () => {
             reposts: new Array<TLUserHandle>(),
             likes: new Array<TLUserHandle>(),
         };
-        console.info(`🐦 Server received the following publishing request\n`, post);
+        console.info(`🐦 Received publishing request\n`, post);
 
-        const userKey = createCID({ handle: handle });
-        const publish = (key: CID, value: Uint8Array) => {
+        const userCID = createCID({ handle: handle });
+        const postCID = createCID({ handle: handle, timestamp: post.timestamp });
+        const postValue = encoder.encode(JSON.stringify(post));
+
+        const store = (key: CID, value: Uint8Array) => {
             node.contentRouting.put(key.bytes, value)
                 .then(() => node.contentRouting.provide(key))
                 .catch(console.error);
         };
-        const postKey = createCID({ handle: handle, timestamp: post.timestamp })
-        const postValue = encoder.encode(JSON.stringify(post));
 
-        node.contentRouting.get(userKey.bytes)
-            .then(userInfo => { publish(postKey, postValue); return userInfo; })
-            .then(userInfo => JSON.parse(decoder.decode(userInfo)) as TLUser)
-            .then(user => { user.posts.push(postKey.toString()); return user; })
-            .then(value => encoder.encode(JSON.stringify(value)))
-            .then(user => publish(userKey, user))
+        node.contentRouting.get(userCID.bytes)
+            .then(value => {
+                store(postCID, postValue);
+                return value;
+            })
+            .then(user => JSON.parse(decoder.decode(user)) as TLUser)
+            .then(user => {
+                user.posts.push(postCID.toString());
+                return user;
+            })
+            .then(user => encoder.encode(JSON.stringify(user)))
+            .then(value => store(userCID, value))
             .then(() => res.sendStatus(201))
             .catch(() => res.sendStatus(400));
     });
 
     app.post('/repost', (req, res) => {
-        const { handle, postId } = req.body as TLInteraction;
+        const { handle, id } = req.body as TLInteraction;
+        console.info(`🐦 Received repost request ${handle}-${id}\n`);
 
-        console.info(`🐦 Server received the following repost request ${handle}-${postId}\n`);
+        const postCID = CID.parse(id);
+        const userCID = createCID({ handle: handle });
 
-        const userKey = createCID({ handle: handle });
-        const publish = (key: CID, value: Uint8Array) => {
-            node.contentRouting.put(key.bytes, value)
-                .then(() => node.contentRouting.provide(key))
+        const store = (k: CID, v: Uint8Array) => {
+            node.contentRouting.put(k.bytes, v)
+                .then(() => node.contentRouting.provide(k))
                 .catch(console.error);
         };
-        const postKey = CID.parse(postId);
 
-        // identify if it is reposted
-        node.contentRouting.get(postKey.bytes)
-            .then(postInfo => JSON.parse(decoder.decode(postInfo)) as TLPost)
+        const updatePost = node.contentRouting.get(postCID.bytes)
+            .then(value => JSON.parse(decoder.decode(value)) as TLPost)
             .then(post => {
                 if (post.reposts.includes(handle))
-                    throw new Error(`The user ${handle} already reposted ${postId}`)
+                    throw new Error(`${handle} already reposted ${id}`);
+
                 post.reposts.push(handle);
                 return post;
             })
-            .then(value => encoder.encode(JSON.stringify(value)))
-            .then(value => publish(postKey, value))
+            .then(post => encoder.encode(JSON.stringify(post)))
+            .then(value => store(postCID, value))
+            .catch(console.error);
 
-            .then(() => node.contentRouting.get(userKey.bytes))
-            .then((userInfo) => JSON.parse(decoder.decode(userInfo)) as TLUser)
-            .then(user => { user.reposts.push(postId); return user; })
-            .then(value => encoder.encode(JSON.stringify(value)))
-            .then(value => publish(userKey, value))
+        const updateUser = node.contentRouting.get(userCID.bytes)
+            .then(value => JSON.parse(decoder.decode(value)) as TLUser)
+            .then(user => {
+                if (user.reposts.includes(id))
+                    throw new Error(`${handle} already reposted ${id}`);
 
+                user.reposts.push(id);
+                return user;
+            })
+            .then(user => encoder.encode(JSON.stringify(user)))
+            .then(value => store(userCID, value))
+            .catch(console.error);
+
+        Promise.all([updatePost, updateUser])
             .then(() => res.sendStatus(200))
             .catch(() => res.sendStatus(400));
     });
 
     app.post('/like', (req, res) => {
-        const { handle, postId } = req.body as TLInteraction;
+        const { handle, id } = req.body as TLInteraction;
+        console.info(`🐦 Received repost request ${handle}-${id}\n`);
 
-        console.info(`🐦 Server received the following repost request ${handle}-${postId}\n`);
+        const postCID = CID.parse(id);
+        const userCID = createCID({ handle: handle });
 
-        const userKey = createCID({ handle: handle });
-        const publish = (key: CID, value: Uint8Array) => {
-            node.contentRouting.put(key.bytes, value)
-                .then(() => node.contentRouting.provide(key))
+        const store = (k: CID, v: Uint8Array) => {
+            node.contentRouting.put(k.bytes, v)
+                .then(() => node.contentRouting.provide(k))
                 .catch(console.error);
         };
-        const postKey = CID.parse(postId);
 
-        // identify if it is reposted
-        node.contentRouting.get(postKey.bytes)
-            .then(postInfo => JSON.parse(decoder.decode(postInfo)) as TLPost)
+        const updatePost = node.contentRouting.get(postCID.bytes)
+            .then(value => JSON.parse(decoder.decode(value)) as TLPost)
             .then(post => {
                 if (post.likes.includes(handle))
-                    throw new Error(`The user ${handle} already reposted ${postId}`)
+                    throw new Error(`${handle} has already reposted ${id}`);
+
                 post.likes.push(handle);
                 return post;
             })
-            .then(value => encoder.encode(JSON.stringify(value)))
-            .then(value => publish(postKey, value))
+            .then(post => encoder.encode(JSON.stringify(post)))
+            .then(value => store(postCID, value))
+            .catch(console.error);
 
-            .then(() => node.contentRouting.get(userKey.bytes))
-            .then((userInfo) => JSON.parse(decoder.decode(userInfo)) as TLUser)
-            .then(user => { user.likes.push(postId); return user; })
-            .then(value => encoder.encode(JSON.stringify(value)))
-            .then(value => publish(userKey, value))
+        const updateUser = node.contentRouting.get(userCID.bytes)
+            .then(value => JSON.parse(decoder.decode(value)) as TLUser)
+            .then(user => {
+                if (user.likes.includes(id))
+                    throw new Error(`${handle} has already liked ${id}`);
 
+                user.likes.push(id);
+                return user;
+            })
+            .then(user => encoder.encode(JSON.stringify(user)))
+            .then(value => store(userCID, value))
+            .catch(console.error)
+
+        Promise.all([updatePost, updateUser])
             .then(() => res.sendStatus(200))
             .catch(() => res.sendStatus(400));
     });
@@ -229,8 +254,10 @@ const main = async () => {
         const followed = node.contentRouting.get(toCID.bytes)
             .then(value => JSON.parse(decoder.decode(value)) as TLUser)
             .then(user => {
-                if (!user.followers.includes(from))
-                    user.followers.push(from);
+                if (user.followers.includes(from))
+                    throw new Error(`${from} already follows ${to}`);
+
+                user.followers.push(from);
                 return user;
             })
             .then(value => encoder.encode(JSON.stringify(value)))
@@ -240,8 +267,10 @@ const main = async () => {
         const follower = node.contentRouting.get(fromCID.bytes)
             .then(value => JSON.parse(decoder.decode(value)) as TLUser)
             .then(user => {
-                if (!user.following.includes(to))
-                    user.following.push(to);
+                if (user.following.includes(to))
+                    throw new Error(`${to} is already followed by ${from}`);
+
+                user.following.push(to);
                 return user;
             })
             .then(value => encoder.encode(JSON.stringify(value)))
