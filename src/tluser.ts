@@ -9,5 +9,5 @@ export default interface TLUser {
     readonly handle: TLUserHandle;
     followers: Set<TLUserHandle>;
     following: Set<TLUserHandle>;
-    posts: TLPost[];
+    posts: Omit<TLPost, "handle">[];
 }
