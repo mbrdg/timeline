@@ -3,7 +3,7 @@
 
 import { TLUserHandle } from "../tluser.js";
 
-export default interface TLConnection {
+export interface TLConnection {
     readonly from: TLUserHandle,
     readonly to: TLUserHandle,
 }

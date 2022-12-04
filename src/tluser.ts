@@ -5,7 +5,7 @@ import { TLPostId } from "./tlpost.js";
 
 export type TLUserHandle = string;
 
-export default interface TLUser {
+export interface TLUser {
     readonly handle: TLUserHandle;
     followers: TLUserHandle[];
     following: TLUserHandle[];

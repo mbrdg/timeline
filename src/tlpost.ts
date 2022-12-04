@@ -5,7 +5,7 @@ import { TLUserHandle } from "./tluser.js";
 
 export type TLPostId = string;
 
-export default interface TLPost {
+export interface TLPost {
     readonly handle: TLUserHandle;
     readonly content: string;
     timestamp: Date;

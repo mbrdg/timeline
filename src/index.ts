@@ -17,9 +17,9 @@ import type { Connection } from '@libp2p/interface-connection';
 import { CID } from 'multiformats/cid';
 import { sha256 } from 'multiformats/hashes/sha2';
 
-import TLPost, { TLInteraction, TLPostId } from './tlpost.js';
-import TLUser, { TLUserHandle } from './tluser.js';
-import TLConnection from './social/tlconnection.js';
+import { TLPost, TLInteraction, TLPostId } from './tlpost.js';
+import { TLUser, TLUserHandle } from './tluser.js';
+import { TLConnection } from './social/tlconnection.js';
 
 
 const main = async () => {
@@ -162,7 +162,7 @@ const main = async () => {
                 .catch(console.error);
         };
         const postKey = CID.parse(postId);
-        
+
         // identify if it is reposted
         node.contentRouting.get(postKey.bytes)
             .then(postInfo => JSON.parse(decoder.decode(postInfo)) as TLPost)
@@ -197,7 +197,7 @@ const main = async () => {
                 .catch(console.error);
         };
         const postKey = CID.parse(postId);
-        
+
         // identify if it is reposted
         node.contentRouting.get(postKey.bytes)
             .then(postInfo => JSON.parse(decoder.decode(postInfo)) as TLPost)
