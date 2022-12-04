@@ -137,6 +137,71 @@ const main = async () => {
             .catch(console.error);
     });
 
+    app.post('/follow', (req, res) => {
+        const { from, to } = req.body as TLConnection;
+
+        const toCID = createCID({ handle: to });
+        const fromCID = createCID({ handle: from });
+
+        const followed = node.contentRouting.get(toCID.bytes)
+            .then(value => JSON.parse(decoder.decode(value)) as TLUser)
+            .then(user => {
+                if (!user.followers.includes(from))
+                    user.followers.push(from);
+                return user;
+            })
+            .then(value => encoder.encode(JSON.stringify(value)))
+            .then(value => node.contentRouting.put(toCID.bytes, value))
+            .catch(console.error);
+
+        const follower = node.contentRouting.get(fromCID.bytes)
+            .then(value => JSON.parse(decoder.decode(value)) as TLUser)
+            .then(user => {
+                if (!user.following.includes(to))
+                    user.following.push(to);
+                return user;
+            })
+            .then(value => encoder.encode(JSON.stringify(value)))
+            .then(value => node.contentRouting.put(fromCID.bytes, value))
+            .then(() => node.contentRouting.provide(toCID))
+            .catch(console.error);
+
+        Promise.all([followed, follower])
+            .then(() => res.status(200).send(`${from} now follows ${to}`))
+            .catch(() => res.status(400).send(`Unable to fullfill the follow request`));
+    });
+
+    app.post('/unfollow', (req, res) => {
+        const { from, to } = req.body as TLConnection;
+
+        const toCID = createCID({ handle: to });
+        const fromCID = createCID({ handle: from });
+
+        const unfollowed = node.contentRouting.get(toCID.bytes)
+            .then(value => JSON.parse(decoder.decode(value)) as TLUser)
+            .then(user => {
+                user.followers.filter(u => u !== from);
+                return user;
+            })
+            .then(value => encoder.encode(JSON.stringify(value)))
+            .then(value => node.contentRouting.put(toCID.bytes, value))
+            .catch(console.error);
+
+        const unfollower = node.contentRouting.get(fromCID.bytes)
+            .then(value => JSON.parse(decoder.decode(value)) as TLUser)
+            .then(user => {
+                user.following.filter(u => u !== to);
+                return user;
+            })
+            .then(value => encoder.encode(JSON.stringify(value)))
+            .then(value => node.contentRouting.put(fromCID.bytes, value))
+            .catch(console.error);
+
+        Promise.all([unfollowed, unfollower])
+            .then(() => res.status(200).json(`${from} no longer follows ${to}`))
+            .catch(() => res.status(400).send(`Unable to fullfill the unfollow request`));
+    });
+
     const httpServer = app.listen(port, hostname, () => {
         const address = httpServer.address() as AddressInfo;
         console.info(`🐦 Server running at http://${hostname}:${address.port}`);
