@@ -19,6 +19,7 @@ import { sha256 } from 'multiformats/hashes/sha2';
 
 import TLPost from './tlpost.js';
 import TLUser, { TLUserHandle } from './tluser.js';
+import TLConnection from './social/tlconnection.js';
 
 
 const main = async () => {
@@ -77,9 +78,9 @@ const main = async () => {
         const { handle } = req.body as Pick<TLUser, "handle">;
         const user: Readonly<TLUser> = {
             handle: handle,
-            followers: new Set<TLUserHandle>(),
-            following: new Set<TLUserHandle>(),
-            posts: [],
+            followers: new Array<TLUserHandle>(),
+            following: new Array<TLUserHandle>(),
+            posts: new Array<TLPost>(),
         };
         console.log(`🐦 Server received the following registration request\n`, user);
 
@@ -115,13 +116,12 @@ const main = async () => {
         const post: Readonly<Omit<TLPost, "handle">> = {
             content: content,
             timestamp: new Date(),
-            reposts: new Set<TLUserHandle>(),
-            likes: new Set<TLUserHandle>(),
+            reposts: new Array<TLUserHandle>(),
+            likes: new Array<TLUserHandle>(),
         };
         console.info(`🐦 Server received the following publishing request\n`, post);
 
         const key = createCID({ handle: handle });
-
         const publish = (value: Uint8Array) => {
             node.contentRouting.put(key.bytes, value)
                 .then(() => node.contentRouting.provide(key))

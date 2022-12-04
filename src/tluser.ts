@@ -7,7 +7,7 @@ export type TLUserHandle = string;
 
 export default interface TLUser {
     readonly handle: TLUserHandle;
-    followers: Set<TLUserHandle>;
-    following: Set<TLUserHandle>;
+    followers: TLUserHandle[];
+    following: TLUserHandle[];
     posts: Omit<TLPost, "handle">[];
 }

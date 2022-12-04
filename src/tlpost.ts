@@ -7,6 +7,6 @@ export default interface TLPost {
     readonly handle: TLUserHandle;
     readonly content: string;
     timestamp: Date;
-    reposts: Set<TLUserHandle>;
-    likes: Set<TLUserHandle>;
+    reposts: TLUserHandle[];
+    likes: TLUserHandle[];
 }
