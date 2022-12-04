@@ -48,10 +48,11 @@ const main = async () => {
     });
 
     node.addEventListener('peer:discovery', (event) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         const peer = event.detail as PeerInfo;
+        console.debug(`🔎 Discovered peer ${peer.multiaddrs.toString()}`);
 
-        node.peerStore.addressBook
-            .set(peer.id, peer.multiaddrs)
+        node.peerStore.addressBook.set(peer.id, peer.multiaddrs)
             .catch(console.error);
 
         node.dial(peer.id)
@@ -59,12 +60,14 @@ const main = async () => {
     });
 
     node.connectionManager.addEventListener('peer:connect', (event) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         const connection = event.detail as Connection;
-        console.log(`✅ Connected peer ${connection.remotePeer.toString()}`);
+        console.debug(`✅ Connected peer ${connection.remotePeer.toString()}`);
     });
     node.connectionManager.addEventListener('peer:disconnect', (event) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         const connection = event.detail as Connection;
-        console.log(`❌ Disconnected peer ${connection.remotePeer.toString()}`);
+        console.debug(`❌ Disconnected peer ${connection.remotePeer.toString()}`);
     });
 
     await node.start();
