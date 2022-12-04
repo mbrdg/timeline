@@ -89,11 +89,8 @@ const main = async () => {
         const register = () => {
             node.contentRouting.put(key.bytes, value)
                 .then(() => node.contentRouting.provide(key))
-                .then(() => res.status(201).send(`User registered successfully`))
-                .catch(err => {
-                    console.error(err);
-                    res.status(400).send(`Unable to fullfill the registration request`);
-                });
+                .then(() => res.sendStatus(201))
+                .catch(() => res.sendStatus(400));
         };
 
         node.contentRouting.get(key.bytes)
@@ -107,8 +104,8 @@ const main = async () => {
 
         node.contentRouting.get(key.bytes)
             .then(value => decoder.decode(value))
-            .then(user => res.status(302).send(user))
-            .catch(() => res.status(404).send(`User ${handle} not found`));
+            .then(user => res.status(302).json(user))
+            .catch(() => res.sendStatus(404));
     });
 
     app.post('/publish', (req, res) => {
@@ -125,8 +122,7 @@ const main = async () => {
         const publish = (value: Uint8Array) => {
             node.contentRouting.put(key.bytes, value)
                 .then(() => node.contentRouting.provide(key))
-                .then(() => res.status(201).send(`Post published successfully`))
-                .catch(() => res.status(400).send(`Unable to fullfill the publishing request`));
+                .catch(console.error);
         };
 
         node.contentRouting.get(key.bytes)
@@ -134,7 +130,8 @@ const main = async () => {
             .then(user => user.posts.push(post))
             .then(value => encoder.encode(JSON.stringify(value)))
             .then(publish)
-            .catch(console.error);
+            .then(() => res.sendStatus(201))
+            .catch(() => res.sendStatus(400));
     });
 
     app.post('/follow', (req, res) => {
@@ -167,8 +164,8 @@ const main = async () => {
             .catch(console.error);
 
         Promise.all([followed, follower])
-            .then(() => res.status(200).send(`${from} now follows ${to}`))
-            .catch(() => res.status(400).send(`Unable to fullfill the follow request`));
+            .then(() => res.sendStatus(200))
+            .catch(() => res.sendStatus(400));
     });
 
     app.post('/unfollow', (req, res) => {
@@ -198,8 +195,8 @@ const main = async () => {
             .catch(console.error);
 
         Promise.all([unfollowed, unfollower])
-            .then(() => res.status(200).json(`${from} no longer follows ${to}`))
-            .catch(() => res.status(400).send(`Unable to fullfill the unfollow request`));
+            .then(() => res.sendStatus(200))
+            .catch(() => res.sendStatus(400));
     });
 
     const httpServer = app.listen(port, hostname, () => {
