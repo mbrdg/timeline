@@ -14,12 +14,14 @@ import { kadDHT } from '@libp2p/kad-dht';
 import type { PeerInfo } from '@libp2p/interface-peer-info';
 import type { Connection } from '@libp2p/interface-connection';
 
+import all from 'it-all';
+import type { QueryOptions } from '@libp2p/interface-dht';
+
 import { CID } from 'multiformats/cid';
 import { sha256 } from 'multiformats/hashes/sha2';
 
 import TLPost from './tlpost.js';
 import TLUser, { TLUserHandle } from './tluser.js';
-
 
 const main = async () => {
 
@@ -70,30 +72,54 @@ const main = async () => {
     await node.start();
     console.info(`🐦 libp2p node has started`);
 
+    const hasCID = async (cid : CID) => {
+        try { 
+            await all(node.contentRouting.findProviders(
+                cid,
+                {queryFuncTimeout: 3000} as QueryOptions
+            ));
+            return true;
+        } catch (err) {
+            return false;
+        }
+    };
+
     app.post('/register', (req, res) => {
-        const { handle } = req.body as Pick<TLUser, "handle">;
-        const user: Readonly<TLUser> = {
-            handle: handle,
-            followers: new Set<TLUserHandle>(),
-            following: new Set<TLUserHandle>(),
-            posts: [],
-        };
-        console.log(`🐦 Server received the following registration request\n`, user);
-
-        // TODO: check if a given handle already exists (auth)
-        const key = createCID({ handle: user.handle });
-        const value = encoder.encode(JSON.stringify(user));
-
-        node.contentRouting.put(key.bytes, value)
-            .then(() => {
-                node.contentRouting.provide(key)
-                    .then(() => res.status(201).send(`User registered successfully`))
-                    .catch(err => res.status(500).send(err));
-            })
-            .catch(err => {
-                console.error(err);
-                res.status(400).send(`Unable to fullfill the registration request`);
-            });
+        void (async () => {
+            const { handle } = req.body as Pick<TLUser, "handle">;
+            const user: Readonly<TLUser> = {
+                handle: handle,
+                followers: new Set<TLUserHandle>(),
+                following: new Set<TLUserHandle>(),
+                posts: [],
+            };
+            console.log(`🐦 Server received the following registration request\n`, user);
+    
+            const key = createCID({ handle: user.handle });
+            
+            if (await hasCID(key)) {
+                console.info(`🚨 Aborting: this handle is already in use: ${handle}`);
+                res.status(400).send(`This handle is already in use: ${handle}`);
+                return; 
+            }
+            console.info(`⌛ Proceeding to the ${handle} registration`);
+        
+            const value = encoder.encode(JSON.stringify(user));
+    
+            node.contentRouting.put(key.bytes, value)
+                .then(() => {
+                    node.contentRouting.provide(key)
+                        .then(() => {
+                            console.info(`✅ ${handle} was successfully registered`)
+                            res.status(201).send(`User registered successfully`);
+                        })
+                        .catch(err => res.status(500).send(err));
+                })
+                .catch(err => {
+                    console.error(err);
+                    res.status(400).send(`Unable to fullfill the registration request`);
+                });
+        })();
     });
 
     app.get('/:handle', (req, res) => {
@@ -109,43 +135,41 @@ const main = async () => {
     });
 
     app.post('/publish', (req, res) => {
-        const { handle, content } = req.body as Pick<TLPost, "handle" | "content">;
-        const time = new Date();
-        const post: Readonly<TLPost> = {
-            handle: handle,
-            content: content,
-            timestamp: time,
-            reposts: new Set<TLUserHandle>(),
-            likes: new Set<TLUserHandle>(),
-        };
-        console.info(`🐦 Server received the following publishing request\n`, post);
+        void (async () => {
+            const { handle, content } = req.body as Pick<TLPost, "handle" | "content">;
+            const post: Readonly<Omit<TLPost, "handle">> = {
+                content: content,
+                timestamp: new Date(),
+                reposts: new Set<TLUserHandle>(),
+                likes: new Set<TLUserHandle>(),
+            };
+            console.info(`🐦 Server received the following publishing request\n`, post);
+    
+            const user = createCID({ handle: handle });
+            if (!await hasCID(user)) {
+                console.info(`🚨 Aborting: there is no user with the handle: ${handle}`);
+                res.status(400).send(`Invalid handle: ${handle}`);
+                return;
+            }
+            console.info(`⌛ Publishing...`);
 
-        // TODO: associate a new post with a handle
-        const key = createCID({ handle: post.handle, timestamp: post.timestamp });
-        const value = encoder.encode(JSON.stringify(post));
-
-        node.contentRouting.put(key.bytes, value)
-            .then(() => {
-                node.contentRouting.provide(key)
-                    .then(() => res.status(201).send(`${key.toString()}`))
-                    .catch(err => res.status(500).send(err));
+            node.contentRouting.get(user.bytes)
+            .then(result => {
+                const user_content = JSON.parse(decoder.decode(result)) as TLUser;
+                user_content.posts.push(post);
+                const new_user = encoder.encode(JSON.stringify(user_content));
+                node.contentRouting.put(user.bytes, new_user)
+                    .then(() => {
+                        console.info(`✅ ${handle}'s post was successfully published`);
+                        res.status(200).send(user.toString());
+                    })
+                    .catch(() => {
+                        console.error(`💥 Error while publishing the new ${handle} post: `, post);
+                        res.status(500);
+                    });
             })
-            .catch((err) => {
-                console.error(err);
-                res.status(400).send(`Unable to fullfill the publishing request`);
-            });
-    });
-
-    app.get('/post/:cid', (req, res) => {
-        const { cid } = req.params;
-        const key = CID.parse(cid);
-
-        node.contentRouting.get(key.bytes)
-            .then((value) => {
-                const post = decoder.decode(value);
-                res.status(200).send(post);
-            })
-            .catch(() => res.status(404).send(`Post ${key.toString()} not found`));
+            .catch(console.error);
+        })();
     });
 
     const httpServer = app.listen(port, hostname, () => {
