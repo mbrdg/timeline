@@ -17,8 +17,8 @@ import type { Connection } from '@libp2p/interface-connection';
 import { CID } from 'multiformats/cid';
 import { sha256 } from 'multiformats/hashes/sha2';
 
-import { TLPost, TLInteraction, TLPostId } from './tlpost.js';
-import { TLUser, TLUserHandle } from './tluser.js';
+import { TLPost, TLInteraction, TLInteractionMetadata, TLPostInteraction } from './tlpost.js';
+import { TLUser } from './tluser.js';
 import { TLConnection } from './social/tlconnection.js';
 
 
@@ -78,11 +78,9 @@ const main = async () => {
         const { handle } = req.body as Pick<TLUser, "handle">;
         const user: Readonly<TLUser> = {
             handle: handle,
-            followers: new Array<TLUserHandle>(),
-            following: new Array<TLUserHandle>(),
-            posts: new Array<TLPostId>(),
-            reposts: new Array<TLPostId>(),
-            likes: new Array<TLPostId>()
+            followers: [],
+            following: [],
+            timeline: []
         };
         console.log(`🐦 Received registration request\n`, user);
 
@@ -122,12 +120,14 @@ const main = async () => {
 
     app.post('/publish', (req, res) => {
         const { handle, content } = req.body as Pick<TLPost, "handle" | "content">;
+        const timestamp = new Date();
+
         const post: Readonly<TLPost> = {
             handle: handle,
             content: content,
-            timestamp: new Date(),
-            reposts: new Array<TLUserHandle>(),
-            likes: new Array<TLUserHandle>(),
+            timestamp: timestamp,
+            reposts: [],
+            likes: [],
         };
         console.info(`🐦 Received publishing request\n`, post);
 
@@ -135,9 +135,9 @@ const main = async () => {
         const postCID = createCID({ handle: handle, timestamp: post.timestamp });
         const postValue = encoder.encode(JSON.stringify(post));
 
-        const store = (key: CID, value: Uint8Array) => {
-            node.contentRouting.put(key.bytes, value)
-                .then(() => node.contentRouting.provide(key))
+        const store = (k: CID, v: Uint8Array) => {
+            node.contentRouting.put(k.bytes, v)
+                .then(() => node.contentRouting.provide(k))
                 .catch(console.error);
         };
 
@@ -148,7 +148,14 @@ const main = async () => {
             })
             .then(user => JSON.parse(decoder.decode(user)) as TLUser)
             .then(user => {
-                user.posts.push(postCID.toString());
+
+                const interaction: TLInteractionMetadata = {
+                    id: postCID.toString(),
+                    interaction: TLPostInteraction.POST,
+                    timestamp: timestamp,
+                };
+                user.timeline.push(interaction);
+
                 return user;
             })
             .then(user => encoder.encode(JSON.stringify(user)))
@@ -186,10 +193,14 @@ const main = async () => {
         const updateUser = node.contentRouting.get(userCID.bytes)
             .then(value => JSON.parse(decoder.decode(value)) as TLUser)
             .then(user => {
-                if (user.reposts.includes(id))
-                    throw new Error(`${handle} already reposted ${id}`);
 
-                user.reposts.push(id);
+                const interaction: TLInteractionMetadata = {
+                    id: id,
+                    interaction: TLPostInteraction.REPOST,
+                    timestamp: new Date(),
+                };
+                user.timeline.push(interaction);
+
                 return user;
             })
             .then(user => encoder.encode(JSON.stringify(user)))
@@ -230,10 +241,14 @@ const main = async () => {
         const updateUser = node.contentRouting.get(userCID.bytes)
             .then(value => JSON.parse(decoder.decode(value)) as TLUser)
             .then(user => {
-                if (user.likes.includes(id))
-                    throw new Error(`${handle} has already liked ${id}`);
 
-                user.likes.push(id);
+                const interaction: TLInteractionMetadata = {
+                    id: id,
+                    interaction: TLPostInteraction.LIKE,
+                    timestamp: new Date(),
+                };
+                user.timeline.push(interaction);
+
                 return user;
             })
             .then(user => encoder.encode(JSON.stringify(user)))

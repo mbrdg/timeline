@@ -4,11 +4,10 @@
 import { TLUserHandle } from "./tluser.js";
 
 export type TLPostId = string;
-
 export interface TLPost {
     readonly handle: TLUserHandle;
     readonly content: string;
-    timestamp: Date;
+    readonly timestamp: Date;
     reposts: TLUserHandle[];
     likes: TLUserHandle[];
 }
@@ -16,4 +15,17 @@ export interface TLPost {
 export interface TLInteraction {
     readonly handle: TLUserHandle;
     readonly id: TLPostId;
+}
+
+
+export enum TLPostInteraction {
+    POST,
+    REPOST,
+    LIKE,
+}
+
+export interface TLInteractionMetadata {
+    readonly id: TLPostId;
+    readonly interaction: TLPostInteraction;
+    readonly timestamp: Date;
 }
