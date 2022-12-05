@@ -25,6 +25,7 @@ export enum TLPostInteraction {
 }
 
 export interface TLInteractionMetadata {
+    readonly handle: TLUserHandle;
     readonly id: TLPostId;
     readonly interaction: TLPostInteraction;
     readonly timestamp: Date;

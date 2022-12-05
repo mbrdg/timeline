@@ -18,7 +18,7 @@ import { CID } from 'multiformats/cid';
 import { sha256 } from 'multiformats/hashes/sha2';
 
 import { TLPost, TLInteraction, TLInteractionMetadata, TLPostInteraction } from './tlpost.js';
-import { TLUser } from './tluser.js';
+import { TLUser, TLUserHandle } from './tluser.js';
 import { TLConnection } from './social/tlconnection.js';
 
 
@@ -150,6 +150,7 @@ const main = async () => {
             .then(user => {
 
                 const interaction: TLInteractionMetadata = {
+                    handle: user.handle,
                     id: postCID.toString(),
                     interaction: TLPostInteraction.POST,
                     timestamp: timestamp,
@@ -195,6 +196,7 @@ const main = async () => {
             .then(user => {
 
                 const interaction: TLInteractionMetadata = {
+                    handle: user.handle,
                     id: id,
                     interaction: TLPostInteraction.REPOST,
                     timestamp: new Date(),
@@ -243,6 +245,7 @@ const main = async () => {
             .then(user => {
 
                 const interaction: TLInteractionMetadata = {
+                    handle: user.handle,
                     id: id,
                     interaction: TLPostInteraction.LIKE,
                     timestamp: new Date(),
