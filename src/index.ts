@@ -106,40 +106,42 @@ const main = async () => {
             const cid = createCID({ handle: handle });
             return node.contentRouting.get(cid.bytes)
                 .then(value => JSON.parse(decoder.decode(value)) as TLUser)
-                .then(user => user.timeline)
+                .then(user => { console.log("GET TIMELINE OVER", user, user.timeline); return user.timeline; })
                 .catch(() => { throw new Error(`Unable to retrive ${handle}'s timeline`); });
         }
 
+        type TLPostOutput = (TLInteractionMetadata | (TLPost & Omit<TLInteractionMetadata, "timestamp">));
+        const getPostsOutput = async (timelinePosts: TLPostOutput[]) => {
+            await Promise.all(timelinePosts.map(async (post) => {
+                const cid = CID.parse(post.id);
+                const metadata = post as Omit<TLInteractionMetadata, "timestamp">
+                return await node.contentRouting.get(cid.bytes)
+                    .then(value => JSON.parse(decoder.decode(value)) as TLPost)
+                    .then(value => ({ ...value, ...metadata } as (TLPost & Omit<TLInteractionMetadata, "timestamp">)))
+                    .catch(err => { throw err; });
+            }));
+            console.log(typeof timelinePosts);
+            return timelinePosts;
+        };
+
         node.contentRouting.get(key.bytes)
             .then(value => JSON.parse(decoder.decode(value)) as TLUser)
-            .then(user => {
-                const mix: TLInteractionMetadata[] = user.timeline;
-                user.following.forEach(handle => {
-                    retriveTimeline(handle)
+            .then(async (user) => {
+                let mix: TLPostOutput[] = user.timeline;
+                await Promise.all(user.following.map(async (handle) => {
+                    console.log(handle);
+                    mix = await retriveTimeline(handle)
                         .then(other => mix.concat(other))
                         .catch(err => { throw err; });
-                });
-
+                    return handle;
+                }));
                 return mix;
             })
-            .then(mix => mix.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()))
+            .then(mix => mix.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()))
             .then(mix => mix.slice(0, 127))
-            .then(mix => {
-                const posts: (TLPost & Omit<TLInteractionMetadata, "timestamp">)[] = [];
-                mix.forEach(post => {
-                    const cid = CID.parse(post.id);
-                    const metadata = post as Omit<TLInteractionMetadata, "timestamp">
-
-                    node.contentRouting.get(cid.bytes)
-                        .then(value => JSON.parse(decoder.decode(value)) as TLPost)
-                        .then(value => posts.push({ ...value, ...metadata }))
-                        .catch(err => { throw err; });
-                });
-
-                return posts;
-            })
-            .then(timeline => res.status(200).json(timeline))
-            .catch(() => res.sendStatus(500))
+            .then(getPostsOutput)
+            .then(timeline => res.status(200).send(timeline))
+            .catch((err) => { console.log(err); res.sendStatus(500); })
     });
 
     app.get('/:handle', (req, res) => {
