@@ -148,7 +148,7 @@ const main = async () => {
 
         node.contentRouting.get(key.bytes)
             .then(value => decoder.decode(value))
-            .then(user => res.status(302).json(user))
+            .then(user => res.status(302).send(user))
             .catch(() => res.sendStatus(404));
     });
 
@@ -158,7 +158,7 @@ const main = async () => {
 
         node.contentRouting.get(key.bytes)
             .then(value => decoder.decode(value))
-            .then(post => res.status(302).json(post))
+            .then(post => res.status(302).send(post))
             .catch(() => res.sendStatus(404));
     });
 
