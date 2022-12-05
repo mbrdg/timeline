@@ -98,6 +98,50 @@ const main = async () => {
             .catch(register);
     });
 
+    app.get('/timeline/:handle', (req, res) => {
+        const { handle } = req.params as Pick<TLUser, "handle">;
+        const key = createCID({ handle: handle });
+
+        const retriveTimeline = (handle: TLUserHandle) => {
+            const cid = createCID({ handle: handle });
+            return node.contentRouting.get(cid.bytes)
+                .then(value => JSON.parse(decoder.decode(value)) as TLUser)
+                .then(user => user.timeline)
+                .catch(() => { throw new Error(`Unable to retrive ${handle}'s timeline`); });
+        }
+
+        node.contentRouting.get(key.bytes)
+            .then(value => JSON.parse(decoder.decode(value)) as TLUser)
+            .then(user => {
+                const mix: TLInteractionMetadata[] = user.timeline;
+                user.following.forEach(handle => {
+                    retriveTimeline(handle)
+                        .then(other => mix.concat(other))
+                        .catch(err => { throw err; });
+                });
+
+                return mix;
+            })
+            .then(mix => mix.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()))
+            .then(mix => mix.slice(0, 127))
+            .then(mix => {
+                const posts: (TLPost & Omit<TLInteractionMetadata, "timestamp">)[] = [];
+                mix.forEach(post => {
+                    const cid = CID.parse(post.id);
+                    const metadata = post as Omit<TLInteractionMetadata, "timestamp">
+
+                    node.contentRouting.get(cid.bytes)
+                        .then(value => JSON.parse(decoder.decode(value)) as TLPost)
+                        .then(value => posts.push({ ...value, ...metadata }))
+                        .catch(err => { throw err; });
+                });
+
+                return posts;
+            })
+            .then(timeline => res.status(200).json(timeline))
+            .catch(() => res.sendStatus(500))
+    });
+
     app.get('/:handle', (req, res) => {
         const { handle } = req.params as Pick<TLUser, "handle">;
         const key = createCID({ handle: handle });
