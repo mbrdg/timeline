@@ -354,7 +354,7 @@ const main = async () => {
         const unfollowed = node.contentRouting.get(toCID.bytes)
             .then(value => JSON.parse(decoder.decode(value)) as TLUser)
             .then(user => {
-                user.followers.filter(u => u !== from);
+                user.followers = user.followers.filter(u => u !== from);
                 return user;
             })
             .then(value => encoder.encode(JSON.stringify(value)))
@@ -364,7 +364,7 @@ const main = async () => {
         const unfollower = node.contentRouting.get(fromCID.bytes)
             .then(value => JSON.parse(decoder.decode(value)) as TLUser)
             .then(user => {
-                user.following.filter(u => u !== to);
+                user.following = user.following.filter(u => u !== to);
                 return user;
             })
             .then(value => encoder.encode(JSON.stringify(value)))
