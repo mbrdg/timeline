@@ -166,6 +166,30 @@ const main = async () => {
             .catch(() => res.status(404).send({ message: `Post not found`}));
     });
 
+    app.get('/topic/:topic', (req, res) => {
+        const { topic } = req.params as Pick<TLTopic, "topic">;
+        const key = createCID({ topic: topic });
+
+        const getPostsOutput = async (topic: TLTopic) => {
+            await Promise.all(topic.timeline.map(post => {
+                const cid = CID.parse(post);
+                return (async () => {
+                    const value = await node.contentRouting.get(cid.bytes)
+                    return JSON.parse(decoder.decode(value)) as TLPost;
+                })();
+            }));
+
+            // TODO: retrieve TLPost instead of TLPostId
+            return topic.timeline;
+        };
+
+        node.contentRouting.get(key.bytes)
+            .then(value => JSON.parse(decoder.decode(value)) as TLTopic)
+            .then(getPostsOutput)
+            .then((posts) => res.status(200).send(posts))
+            .catch((err) => { console.error(err); res.sendStatus(500); });
+    });
+
     app.post('/publish', (req, res) => {
         const { handle, content, topics } = req.body as Pick<TLPost, "handle" | "content" | "topics">;
         const timestamp = new Date();
