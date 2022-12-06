@@ -2,6 +2,7 @@
 // T4G14
 
 import express from 'express';
+import cors from 'cors';
 import { AddressInfo } from 'net';
 
 import { createLibp2p } from 'libp2p';
@@ -29,6 +30,9 @@ const main = async () => {
 
     const [hostname, port] = ['localhost', 0];
     const app = express();
+
+    // CORS for all origins, what a beautiful flaw
+    app.use(cors);
     app.use(express.json());
 
     const createCID = (data: Readonly<Partial<TLUser | TLPost>>) => {

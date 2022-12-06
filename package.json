@@ -25,6 +25,7 @@
   "author": "t4g14",
   "license": "MIT",
   "devDependencies": {
+    "@types/cors": "^2.8.13",
     "@types/express": "^4.17.14",
     "@types/node": "^18.11.9",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
@@ -43,6 +44,7 @@
     "@libp2p/mdns": "^5.1.0",
     "@libp2p/mplex": "^7.1.0",
     "@libp2p/tcp": "^6.0.4",
+    "cors": "^2.8.5",
     "express": "^4.18.2",
     "libp2p": "^0.40.0"
   }
