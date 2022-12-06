@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { defineProps } from "vue";
 export interface ProfileDescription {
   name: string;
   followers: string[];
