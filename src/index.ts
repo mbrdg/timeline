@@ -102,46 +102,44 @@ const main = async () => {
         const { handle } = req.params as Pick<TLUser, "handle">;
         const key = createCID({ handle: handle });
 
-        const retriveTimeline = (handle: TLUserHandle) => {
+        const getUserTimeline = (handle: TLUserHandle) => {
             const cid = createCID({ handle: handle });
-            return node.contentRouting.get(cid.bytes)
-                .then(value => JSON.parse(decoder.decode(value)) as TLUser)
-                .then(user => { console.log("GET TIMELINE OVER", user, user.timeline); return user.timeline; })
-                .catch(() => { throw new Error(`Unable to retrive ${handle}'s timeline`); });
-        }
 
-        type TLPostOutput = (TLInteractionMetadata | (TLPost & Omit<TLInteractionMetadata, "timestamp">));
-        const getPostsOutput = async (timelinePosts: TLPostOutput[]) => {
-            await Promise.all(timelinePosts.map(async (post) => {
+            return (async () => {
+                const value = await node.contentRouting.get(cid.bytes);
+                const user = JSON.parse(decoder.decode(value)) as TLUser;
+                return user.timeline;
+            })();
+        };
+
+        type TLTimelineInteraction = (TLPost & Omit<TLInteractionMetadata, "timestamp">);
+        const getTimelinePosts = (interactions: TLInteractionMetadata[]) => {
+            return Promise.all(interactions.map(post => {
                 const cid = CID.parse(post.id);
-                const metadata = post as Omit<TLInteractionMetadata, "timestamp">
-                return await node.contentRouting.get(cid.bytes)
-                    .then(value => JSON.parse(decoder.decode(value)) as TLPost)
-                    .then(value => ({ ...value, ...metadata } as (TLPost & Omit<TLInteractionMetadata, "timestamp">)))
-                    .catch(err => { throw err; });
+                const metadata = post as Omit<TLInteractionMetadata, "timestamp">;
+
+                return (async() => {
+                    const value = await node.contentRouting.get(cid.bytes);
+                    const post = JSON.parse(decoder.decode(value)) as TLPost;
+                    return { ...post, ...metadata } as TLTimelineInteraction;
+                })();
             }));
-            console.log(typeof timelinePosts);
-            return timelinePosts;
         };
 
         node.contentRouting.get(key.bytes)
-            .then(value => JSON.parse(decoder.decode(value)) as TLUser)
-            .then(async (user) => {
-                let mix: TLPostOutput[] = user.timeline;
-                await Promise.all(user.following.map(async (handle) => {
-                    console.log(handle);
-                    mix = await retriveTimeline(handle)
-                        .then(other => mix.concat(other))
-                        .catch(err => { throw err; });
-                    return handle;
-                }));
-                return mix;
-            })
-            .then(mix => mix.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()))
-            .then(mix => mix.slice(0, 127))
-            .then(getPostsOutput)
-            .then(timeline => res.status(200).send(timeline))
-            .catch((err) => { console.log(err); res.sendStatus(500); })
+            .then(value => JSON.parse(decoder.decode(value)) as Pick<TLUser, "timeline" | "following">)
+            .then(user =>
+                Promise.all(Array.from(user.following).map(async (handle) => await getUserTimeline(handle)))
+                    .then(timelines => [...timelines, user.timeline])
+            )
+            .then(timelines =>
+                timelines.flat()
+                    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                    .slice(0, 127)
+            )
+            .then(getTimelinePosts)
+            .then(mixed => res.status(200).send(mixed))
+            .catch((err: Error) => res.send(400).send({ message: err.message }));
     });
 
     app.get('/:handle', (req, res) => {
