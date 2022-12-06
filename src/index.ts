@@ -89,12 +89,12 @@ const main = async () => {
         const register = () => {
             node.contentRouting.put(key.bytes, value)
                 .then(() => node.contentRouting.provide(key))
-                .then(() => res.sendStatus(201))
-                .catch(() => res.sendStatus(400));
+                .then(() => res.status(201).send({ message: `${handle} is now registered`}))
+                .catch(() => res.status(400).send({ message: `Unable to register ${handle}` }));
         };
 
         node.contentRouting.get(key.bytes)
-            .then(() => res.status(303).send(`${handle} already exists`))
+            .then(() => res.status(303).send({ message: `${handle} already exists`}))
             .catch(register);
     });
 
@@ -151,7 +151,7 @@ const main = async () => {
         node.contentRouting.get(key.bytes)
             .then(value => decoder.decode(value))
             .then(user => res.status(302).send(user))
-            .catch(() => res.sendStatus(404));
+            .catch(() => res.status(404).send({ message: `User ${handle} not found`}));
     });
 
     app.get('/post/:id', (req, res) => {
@@ -161,7 +161,7 @@ const main = async () => {
         node.contentRouting.get(key.bytes)
             .then(value => decoder.decode(value))
             .then(post => res.status(302).send(post))
-            .catch(() => res.sendStatus(404));
+            .catch(() => res.status(404).send({ message: `Post not found`}));
     });
 
     app.post('/publish', (req, res) => {
@@ -207,8 +207,8 @@ const main = async () => {
             })
             .then(user => encoder.encode(JSON.stringify(user)))
             .then(value => store(userCID, value))
-            .then(() => res.sendStatus(201))
-            .catch(() => res.sendStatus(400));
+            .then(() => res.status(201).send({ id: postCID.toString() }))
+            .catch(() => res.status(400).send({ message: `Unable to publish the post`}));
     });
 
     app.post('/repost', (req, res) => {
@@ -256,8 +256,8 @@ const main = async () => {
             .catch(console.error);
 
         Promise.all([updatePost, updateUser])
-            .then(() => res.sendStatus(200))
-            .catch(() => res.sendStatus(400));
+            .then(() => res.status(200).send({ id: id }))
+            .catch((err: Error) => res.status(400).send({ message: err.message }));
     });
 
     app.post('/like', (req, res) => {
@@ -305,8 +305,8 @@ const main = async () => {
             .catch(console.error)
 
         Promise.all([updatePost, updateUser])
-            .then(() => res.sendStatus(200))
-            .catch(() => res.sendStatus(400));
+            .then(() => res.status(200).send({ id: id }))
+            .catch((err: Error) => res.status(400).send({ message: err.message }));
     });
 
     app.post('/follow', (req, res) => {
@@ -343,8 +343,8 @@ const main = async () => {
             .catch(console.error);
 
         Promise.all([followed, follower])
-            .then(() => res.sendStatus(200))
-            .catch(() => res.sendStatus(400));
+            .then(() => res.status(200).send({ message: `${from} now follows ${to}` }))
+            .catch((err: Error) => res.status(400).send({ message: err.message }));
     });
 
     app.post('/unfollow', (req, res) => {
@@ -374,8 +374,8 @@ const main = async () => {
             .catch(console.error);
 
         Promise.all([unfollowed, unfollower])
-            .then(() => res.sendStatus(200))
-            .catch(() => res.sendStatus(400));
+            .then(() => res.status(200).send({ message: `${from} no longer follows ${to}`}))
+            .catch((err: Error) => res.status(400).send({ message: err.message }));
     });
 
     const httpServer = app.listen(port, hostname, () => {
