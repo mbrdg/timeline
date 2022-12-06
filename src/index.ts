@@ -194,9 +194,8 @@ const main = async () => {
             })
             .then(user => JSON.parse(decoder.decode(user)) as TLUser)
             .then(user => {
-
                 const interaction: TLInteractionMetadata = {
-                    handle: user.handle,
+                    who: user.handle,
                     id: postCID.toString(),
                     interaction: TLPostInteraction.POST,
                     timestamp: timestamp,
@@ -240,9 +239,8 @@ const main = async () => {
         const updateUser = node.contentRouting.get(userCID.bytes)
             .then(value => JSON.parse(decoder.decode(value)) as TLUser)
             .then(user => {
-
                 const interaction: TLInteractionMetadata = {
-                    handle: user.handle,
+                    who: user.handle,
                     id: id,
                     interaction: TLPostInteraction.REPOST,
                     timestamp: new Date(),
@@ -291,7 +289,7 @@ const main = async () => {
             .then(user => {
 
                 const interaction: TLInteractionMetadata = {
-                    handle: user.handle,
+                    who: user.handle,
                     id: id,
                     interaction: TLPostInteraction.LIKE,
                     timestamp: new Date(),
