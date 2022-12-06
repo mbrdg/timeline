@@ -170,6 +170,11 @@ const main = async () => {
         const { handle, content } = req.body as Pick<TLPost, "handle" | "content">;
         const timestamp = new Date();
 
+        if (content.length === 0) {
+            res.status(400).send("A post can not have an empty content");
+            return;
+        }
+
         const post: Readonly<TLPost> = {
             handle: handle,
             content: content,
