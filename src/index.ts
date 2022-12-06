@@ -18,7 +18,7 @@ import type { Connection } from '@libp2p/interface-connection';
 import { CID } from 'multiformats/cid';
 import { sha256 } from 'multiformats/hashes/sha2';
 
-import { TLPost, TLInteraction, TLInteractionMetadata, TLPostInteraction } from './tlpost.js';
+import { TLPost, TLInteraction, TLInteractionMetadata, TLPostInteraction, TLPostTopic, TLTopic } from './tlpost.js';
 import { TLUser, TLUserHandle } from './tluser.js';
 import { TLConnection } from './social/tlconnection.js';
 
@@ -35,7 +35,7 @@ const main = async () => {
     app.use(cors);
     app.use(express.json());
 
-    const createCID = (data: Readonly<Partial<TLUser | TLPost>>) => {
+    const createCID = (data: Readonly<Partial<TLUser | TLPost | TLTopic>>) => {
         const bytes = encoder.encode(JSON.stringify(data));
         const hash = sha256.digest(bytes) as Awaited<ReturnType<typeof sha256.digest>>;
         return CID.createV1(sha256.code, hash);
@@ -167,7 +167,7 @@ const main = async () => {
     });
 
     app.post('/publish', (req, res) => {
-        const { handle, content } = req.body as Pick<TLPost, "handle" | "content">;
+        const { handle, content, topics } = req.body as Pick<TLPost, "handle" | "content" | "topics">;
         const timestamp = new Date();
 
         if (content.length === 0) {
@@ -179,6 +179,7 @@ const main = async () => {
             handle: handle,
             content: content,
             timestamp: timestamp,
+            topics: topics,
             reposts: [],
             likes: [],
         };
@@ -193,6 +194,30 @@ const main = async () => {
                 .then(() => node.contentRouting.provide(k))
                 .catch(console.error);
         };
+
+        const createTopic = (topicCID: CID, topic: TLPostTopic) => {
+            console.log(`creating topic ${topic}`);
+            const topicInfo: Readonly<TLTopic> = {
+                topic: topic,
+                timeline: [postCID.toString()]
+            };
+            const topicValue = encoder.encode(JSON.stringify(topicInfo));
+            return store(topicCID, topicValue);
+        }
+
+        const addPostToTopic = () => {
+            return Promise.all(topics.map(topic => {
+                const topicCID = createCID({ topic: topic });
+                return (async () => {
+                    const value = await node.contentRouting.get(topicCID.bytes);
+                    const topicObj = JSON.parse(decoder.decode(value)) as TLTopic;
+                    topicObj.timeline.push(postCID.toString());
+                    const topicValue = encoder.encode(JSON.stringify(topicObj));
+                    store(topicCID, topicValue);
+                    createTopic(topicCID, topic);
+                })();
+            }));
+        }
 
         node.contentRouting.get(userCID.bytes)
             .then(value => {
@@ -213,6 +238,7 @@ const main = async () => {
             })
             .then(user => encoder.encode(JSON.stringify(user)))
             .then(value => store(userCID, value))
+            .then(addPostToTopic)
             .then(() => res.status(201).send({ id: postCID.toString() }))
             .catch(() => res.status(400).send({ message: `Unable to publish the post`}));
     });
