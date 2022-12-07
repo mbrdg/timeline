@@ -30,7 +30,10 @@ const registerError = ref(false);
       @submit.prevent="register(handle, key)"
       class="flex flex-col gap-6 w-full"
     >
-      <h1 class="text-3xl">Welcome to YADTS</h1>
+      <div class="flex items-center gap-6">
+        <h1 class="text-5xl">Welcome to Alef</h1>
+        <img src="../assets/alef.svg" />
+      </div>
       <div class="flex w-3/4 h-11 bg-lightdark rounded-full shadow-none">
         <div class="flex flex-1 pt-1 pr-2 pb-0 pl-3">
           <div class="flex items-center pr-3">
