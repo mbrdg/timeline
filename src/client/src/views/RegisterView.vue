@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { RouterLink, useRouter } from "vue-router";
+import { useRouter } from "vue-router";
 import { inject, ref } from "vue";
 import type { AxiosInstance } from "axios";
 
 const router = useRouter();
 const api = inject("api") as AxiosInstance;
 
-const register = async (handle: string, key: string) => {
+async function register(handle: string, key: string) {
   const response = await api
     .post("/register", { handle, key })
     .catch((error) => {
@@ -17,7 +17,7 @@ const register = async (handle: string, key: string) => {
     console.log("Registered the user and got a response of", response);
     router.push({ name: "home" });
   }
-};
+}
 
 const handle = ref("");
 const key = ref("");
@@ -71,6 +71,12 @@ const registerError = ref(false);
       <p v-if="registerError" class="text-red-500">
         There was an error registering the profile. Please try again
       </p>
+      <button
+        class="self-start bg-light rounded-xl text-superdark text-lg mt-5 py-3 px-1 w-1/5"
+        type="submit"
+      >
+        Register
+      </button>
       <!--<p>
         Already have an account?
         <RouterLink to="/login" class="underline text-accent"
