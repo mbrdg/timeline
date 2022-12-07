@@ -2,33 +2,11 @@
 import { inject, onBeforeMount, ref } from "vue";
 import { useRoute } from "vue-router";
 import type { AxiosInstance } from "axios";
-import ProfileDescription from "../components/ProfileDescription.vue";
-import ProfileTimeline from "./ProfileTimeline.vue";
-export interface Post {
-  handle: string;
-  content: string;
-  timestamp: Date;
-  reposts: string[];
-  likes: string[];
-}
-
-enum PostInteraction {
-  POST,
-  REPOST,
-  LIKE,
-}
-interface Interaction {
-  handle: string;
-  id: string;
-  interaction: PostInteraction;
-  timestamp: Date;
-}
-interface UserInfo {
-  handle: string;
-  followers: string[];
-  following: string[];
-  timeline: Interaction[];
-}
+import ProfileDescription from "@/components/ProfileDescription.vue";
+import Timeline from "@/components/Timeline.vue";
+import type { Post } from "@/types/Post";
+import type { UserInfo } from "@/types/User";
+import { PostInteraction } from "@/types/Interaction";
 
 const api = inject("api") as AxiosInstance;
 const route = useRoute();
@@ -50,7 +28,6 @@ async function fetchUserInfo(handle: string) {
       return index === self.indexOf(elem);
     });
 
-  console.log(postIDs);
   for (let id of postIDs || []) {
     const postData = await api.get("/post/" + id, {
       validateStatus: (status) => {
@@ -73,6 +50,6 @@ onBeforeMount(async () => {
   <main class="w-3/5 flex flex-col mx-auto">
     <ProfileDescription :name="user?.handle || ''" :followers="user?.followers || []"
       :following="user?.following || []" />
-    <ProfileTimeline :posts="posts" :name="user?.handle || ''" />
+    <Timeline :posts="posts" :name="user?.handle || ''" />
   </main>
 </template>

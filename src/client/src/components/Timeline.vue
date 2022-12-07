@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Post } from './ProfileView.vue';
 
-export interface Timeline { }
 const props = defineProps({
   posts: Array<Post>,
   name: String
