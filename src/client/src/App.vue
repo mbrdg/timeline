@@ -2,10 +2,10 @@
 import { RouterView } from "vue-router";
 import axios from "axios";
 import { provide } from "vue";
-const BASE_URL = "http://localhost:45469";
+const BASE_URL = "http://localhost:42721";
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 2000,
+  timeout: 5000,
 });
 provide("api", api);
 </script>
