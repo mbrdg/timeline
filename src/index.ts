@@ -170,22 +170,19 @@ const main = async () => {
         const { topic } = req.params as Pick<TLTopic, "topic">;
         const key = createCID({ topic: topic });
 
-        const getPostsOutput = async (topic: TLTopic) => {
-            await Promise.all(topic.timeline.map(post => {
+        const getTopicPosts = async (topic: TLTopic) => {
+            return Promise.all(topic.timeline.map(post => {
                 const cid = CID.parse(post);
                 return (async () => {
-                    const value = await node.contentRouting.get(cid.bytes)
+                    const value = await node.contentRouting.get(cid.bytes);
                     return JSON.parse(decoder.decode(value)) as TLPost;
                 })();
             }));
-
-            // TODO: retrieve TLPost instead of TLPostId
-            return topic.timeline;
         };
 
         node.contentRouting.get(key.bytes)
             .then(value => JSON.parse(decoder.decode(value)) as TLTopic)
-            .then(getPostsOutput)
+            .then(getTopicPosts)
             .then((posts) => res.status(200).send(posts))
             .catch((err) => { console.error(err); res.sendStatus(500); });
     });
