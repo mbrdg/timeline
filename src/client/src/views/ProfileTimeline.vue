@@ -3,7 +3,8 @@ import type { Post } from './ProfileView.vue';
 
 export interface Timeline { }
 const props = defineProps({
-  posts: Array<Post>
+  posts: Array<Post>,
+  name: String
 });
 </script>
 
@@ -11,9 +12,11 @@ const props = defineProps({
   <section class="self-start pt-10 w-1/2">
     <h1 class="font-bold text-5xl">Timeline</h1>
     <!-- TODO: Add the entries here -->
-    <div v-for="post in posts">
-
-      <div class="container flex flex-col bg-lightdark rounded-md p-5 m-2 gap-2 shadow-md">
+    <div v-for="post in posts" class="flex flex-col">
+      <div class="mx-2 mt-2" v-if="name !== post.handle" >
+        <div>{{ name }} reposted</div>
+      </div>
+      <div class="container flex flex-col bg-lightdark rounded-md p-5 my-2 gap-2 shadow-md">
         <div class="flex flex-col justify-between">
           <div class="font-semibold text-lg">{{ post.handle }}</div>
           <div class="font-light text-sm">{{ post.timestamp.toLocaleString() }}</div>
