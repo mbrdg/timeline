@@ -217,7 +217,6 @@ const main = async () => {
         };
 
         const createTopic = (topicCID: CID, topic: TLPostTopic) => {
-            console.log(`creating topic ${topic}`);
             const topicInfo: Readonly<TLTopic> = {
                 topic: topic,
                 timeline: [postCID.toString()]
@@ -230,12 +229,18 @@ const main = async () => {
             return Promise.all(topics.map(topic => {
                 const topicCID = createCID({ topic: topic });
                 return (async () => {
-                    const value = await node.contentRouting.get(topicCID.bytes);
+                    let value = await node.contentRouting.get(topicCID.bytes)
+                        .then(res => res)
+                        .catch(() => {
+                            createTopic(topicCID, topic);
+                            return Uint8Array.from([]);
+                        });
+                    if (!value.length) return;
+
                     const topicObj = JSON.parse(decoder.decode(value)) as TLTopic;
                     topicObj.timeline.push(postCID.toString());
-                    const topicValue = encoder.encode(JSON.stringify(topicObj));
-                    store(topicCID, topicValue);
-                    createTopic(topicCID, topic);
+                    value = encoder.encode(JSON.stringify(topicObj));
+                    store(topicCID, value);
                 })();
             }));
         }
