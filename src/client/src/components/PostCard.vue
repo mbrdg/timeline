@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Post } from '@/types/Post';
 import type { AxiosInstance } from 'axios';
-import { inject } from 'vue';
+import { inject, computed, ref, reactive } from 'vue';
 export interface PostCard {
   post: Post;
   name: string;
@@ -9,6 +9,13 @@ export interface PostCard {
 }
 const props = defineProps<PostCard>();
 const api = inject("api") as AxiosInstance;
+const likeCount = reactive({ count: props.post.likes.length });
+const isLiked = reactive({ isLiked: props.post.likes.includes(props.name) });
+
+const repostCount = reactive({ count: props.post.reposts.length });
+const isReposted = reactive({ isReposted: props.post.reposts.includes(props.name) });
+
+
 
 function timeDifference(current: number, previous: number) {
 
@@ -36,17 +43,26 @@ function timeDifference(current: number, previous: number) {
 }
 
 async function like() {
-  await api.post("/like", {
-    handle: props.name,
-    id: props.id
-  });
+  if (!isLiked.isLiked) {
+    await api.post("/like", {
+      handle: props.name,
+      id: props.id
+    });
+    likeCount.count++;
+    isLiked.isLiked = true;
+  }
 }
 
 async function repost() {
-  await api.post("/repost", {
-    handle: props.name,
-    id: props.id
-  });
+  if (!isReposted.isReposted) {
+    await api.post("/repost", {
+      handle: props.name,
+      id: props.id
+    });
+    repostCount.count++;
+    isReposted.isReposted = true;
+  }
+
 }
 
 
@@ -68,14 +84,18 @@ async function repost() {
     <div class="flex-grow h-px bg-dark mt-2 opacity-70"></div>
     <div class="flex flex-row justify-around">
       <form @submit.prevent="repost" class="flex flex-row gap-1">
-        <button v-if="post.reposts.includes(props.name)"><img src="@/assets/repeat_filled.svg" /></button>
+        <button v-if="isReposted.isReposted">
+          <img src="@/assets/repeat_filled.svg" />
+        </button>
         <button v-else><img src="@/assets/repeat.svg" /></button>
-        <div>{{ post.reposts.length }}</div>
+        <div>{{ computed(() => { return repostCount.count }) }}</div>
       </form>
       <form @submit.prevent="like" class="flex flex-row gap-1">
-        <button v-if="post.likes.includes(props.name)"><img src="@/assets/heart_filled.svg" /></button>
+        <button v-if="isLiked.isLiked">
+          <img src="@/assets/heart_filled.svg" />
+        </button>
         <button v-else><img src="@/assets/heart.svg" /></button>
-        <div>{{ post.likes.length }}</div>
+        <div>{{ computed(() => { return likeCount.count }) }}</div>
       </form>
     </div>
   </div>
