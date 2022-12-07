@@ -32,7 +32,7 @@ const main = async () => {
     const app = express();
 
     // CORS for all origins, what a beautiful flaw
-    app.use(cors);
+    app.use(cors());
     app.use(express.json());
 
     const createCID = (data: Readonly<Partial<TLUser | TLPost | TLTopic>>) => {
