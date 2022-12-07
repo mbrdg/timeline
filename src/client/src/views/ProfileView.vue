@@ -22,6 +22,7 @@ async function fetchUserInfo(handle: string) {
     }
   });
   user.value = JSON.parse(data.data);
+  console.log(user.value);
   const postIDs = user.value?.timeline.filter((i) => i.interaction !== PostInteraction.LIKE)
     .map((i) => i.id)
     .filter((elem, index, self) => {
@@ -41,7 +42,7 @@ async function fetchUserInfo(handle: string) {
 
 onBeforeMount(async () => {
   handle.value = route.params.handle.toString();
-  await fetchUserInfo(handle.value)
+  await fetchUserInfo(handle.value);
 }
 );
 </script>
