@@ -11,7 +11,6 @@ const props = defineProps({
 <template>
   <section class="self-start pt-10 w-1/2">
     <h1 class="font-bold text-5xl">Timeline</h1>
-    <!-- TODO: Add the entries here -->
     <div v-for="post in posts" class="flex flex-col">
       <div class="mx-2 mt-2" v-if="name !== post.handle" >
         <div>{{ name }} reposted</div>
