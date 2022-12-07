@@ -22,8 +22,10 @@ async function fetchUserInfo(handle: string) {
     }
   });
   user.value = JSON.parse(data.data);
-  console.log(user.value);
   const postIDs = user.value?.timeline.filter((i) => i.interaction !== PostInteraction.LIKE)
+    .sort(
+      (objA, objB) => (new Date(objB.timestamp)).getTime() - (new Date(objA.timestamp)).getTime(),
+    )
     .map((i) => i.id)
     .filter((elem, index, self) => {
       return index === self.indexOf(elem);
