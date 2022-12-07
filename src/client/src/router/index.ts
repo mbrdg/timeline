@@ -9,7 +9,7 @@ const router = createRouter({
   routes: [
     {
       path: "/",
-      redirect: "/login",
+      redirect: "/home",
     },
     {
       path: "/home",
@@ -21,11 +21,11 @@ const router = createRouter({
       name: "register",
       component: RegisterView,
     },
-    {
+    /*{
       path: "/login",
       name: "login",
       component: LoginView,
-    },
+    },*/
     {
       path: "/:handle",
       name: "profile",
