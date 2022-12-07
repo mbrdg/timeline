@@ -235,7 +235,7 @@ const main = async () => {
                             createTopic(topicCID, topic);
                             return Uint8Array.from([]);
                         });
-                    if (!value.length) return;
+                    if (value.length === 0) return;
 
                     const topicObj = JSON.parse(decoder.decode(value)) as TLTopic;
                     topicObj.timeline.push(postCID.toString());
