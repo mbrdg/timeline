@@ -101,6 +101,6 @@ onBeforeMount(async () => {
 <template>
   <main class="w-3/5 flex flex-col mx-auto">
     <ProfileDescription :name="handle" :followers="user.followers" :following="user.following" />
-    <ProfileTimeline :posts=posts?.values() />
+    <ProfileTimeline :posts=posts?.values() :name="handle" />
   </main>
 </template>
