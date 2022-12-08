@@ -32,7 +32,7 @@ const registerError = ref(false);
       class="flex flex-col gap-6 w-full"
     >
       <div class="flex items-center gap-6">
-        <h1 class="text-5xl">Welcome to Alef</h1>
+        <h1 class="text-5xl">Welcome to Aleph</h1>
         <img src="../assets/alef.svg" />
       </div>
       <div class="flex w-3/4 h-11 bg-lightdark rounded-full shadow-none">
