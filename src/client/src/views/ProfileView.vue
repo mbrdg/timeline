@@ -12,7 +12,7 @@ const api = inject("api") as AxiosInstance;
 const route = useRoute();
 const handle = ref("");
 const user = ref<UserInfo>();
-const posts = ref<Post[]>([]);
+const posts = ref<Map<string, Post>>(new Map<string, Post>());
 handle.value = route.params.handle as string;
 
 async function fetchUserInfo(handle: string) {
@@ -22,8 +22,10 @@ async function fetchUserInfo(handle: string) {
     }
   });
   user.value = JSON.parse(data.data);
-  console.log(user.value);
   const postIDs = user.value?.timeline.filter((i) => i.interaction !== PostInteraction.LIKE)
+    .sort(
+      (objA, objB) => (new Date(objB.timestamp)).getTime() - (new Date(objA.timestamp)).getTime(),
+    )
     .map((i) => i.id)
     .filter((elem, index, self) => {
       return index === self.indexOf(elem);
@@ -35,7 +37,7 @@ async function fetchUserInfo(handle: string) {
         return status == 302
       }
     });
-    posts.value.push(JSON.parse(postData.data));
+    posts.value.set(id, JSON.parse(postData.data));
   }
 
 }
@@ -43,8 +45,8 @@ async function fetchUserInfo(handle: string) {
 onBeforeMount(async () => {
   handle.value = route.params.handle.toString();
   await fetchUserInfo(handle.value);
-}
-);
+});
+
 </script>
 
 <template>
