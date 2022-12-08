@@ -22,19 +22,20 @@ const disableButton = computed(() => {
   );
 });
 
-async function getSignature(postContent: string) {
+async function getSignature(postContent: string, topics: string[]) {
   const algorithm = "RS512";
+  const data = JSON.stringify({
+    content: postContent,
+    topics: topics,
+  });
   try {
     // Must be in PKCS8 format
     const privateKey = await jose.importPKCS8(props.privateKey, algorithm);
 
-    const signature = await new jose.CompactSign(
-      new TextEncoder().encode(postContent)
-    )
+    const signature = await new jose.CompactSign(new TextEncoder().encode(data))
       .setProtectedHeader({ alg: algorithm })
       .sign(privateKey);
 
-    console.log("The message's signature is");
     return signature;
   } catch (error) {
     console.error(error);
@@ -42,14 +43,24 @@ async function getSignature(postContent: string) {
   }
 }
 
+const extractTopics = (postContent: string) => {
+  let topics = (postContent.match(/(^|\W)#\w+/gi) as string[]) || [];
+  topics = topics.map((topic) => topic.trim());
+
+  for (let i = 0; i < topics.length; i++) {
+    topics[i] = topics[i].replace(/.(?=#)/gi, "");
+  }
+
+  return topics;
+};
+
 async function publish(postContent: string) {
-  const signature = await getSignature(postContent);
-  console.log("The signature is", signature);
+  const topics = extractTopics(postContent);
+  const signature = await getSignature(postContent, topics);
   const response = await api
     .post("/publish", {
       handle: props.handle,
-      content: postContent,
-      signature: signature,
+      content: signature,
     })
     .catch((error) => {
       console.error("Error publishing post:", error.message, error.code);
