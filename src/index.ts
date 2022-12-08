@@ -22,6 +22,8 @@ import { TLPost, TLInteraction, TLInteractionMetadata, TLPostInteraction, TLPost
 import { TLUser, TLUserHandle } from './tluser.js';
 import { TLConnection } from './social/tlconnection.js';
 
+import { importSPKI } from 'jose';
+const authAlgorithm = "RS256";
 
 const main = async () => {
 
@@ -78,28 +80,40 @@ const main = async () => {
     await node.start();
     console.info(`🐦 libp2p node has started`);
 
+    interface registerBody { handle: TLUserHandle, publicKey: string }
     app.post('/register', (req, res) => {
-        const { handle } = req.body as Pick<TLUser, "handle">;
-        const user: Readonly<TLUser> = {
-            handle: handle,
-            followers: [],
-            following: [],
-            timeline: []
-        };
-        console.log(`🐦 Received registration request\n`, user);
+        const { handle, publicKey } = req.body as registerBody;
 
-        const key = createCID({ handle: user.handle });
-        const value = encoder.encode(JSON.stringify(user));
-        const register = () => {
+        console.log(`🐦 Received registration request: ${handle}`);
+
+        const key = createCID({ handle: handle });
+        const register = (value: Uint8Array) => {
             node.contentRouting.put(key.bytes, value)
                 .then(() => node.contentRouting.provide(key))
                 .then(() => res.status(201).send({ message: `${handle} is now registered`}))
                 .catch(() => res.status(400).send({ message: `Unable to register ${handle}` }));
         };
+        const createUser = () =>
+            importSPKI(publicKey, authAlgorithm)
+                .then(pk => {
+                    return {
+                        handle: handle,
+                        publicKey: pk,
+                        followers: [],
+                        following: [],
+                        timeline: []
+                    } as Readonly<TLUser>;
+                })
+                .catch(() => res.status(400).send({ message: 'The public keys must be in SPKI format' }))
+                .then(user => {
+                    if (!('handle' in user)) return;
+                    const value = encoder.encode(JSON.stringify(user));
+                    register(value);
+                });
 
         node.contentRouting.get(key.bytes)
             .then(() => res.status(303).send({ message: `${handle} already exists`}))
-            .catch(register);
+            .catch(createUser);
     });
 
     app.get('/timeline/:handle', (req, res) => {
