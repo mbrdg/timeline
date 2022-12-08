@@ -29,6 +29,12 @@ defineEmits(["update:handle", "update:privateKey"]);
       placeholder="Enter your private key here"
     />
     <div class="flex gap-2 text-xl mt-5">
+      <p>Go to your</p>
+      <RouterLink class="text-accent" :to="`/${handle}`"
+        >profile page</RouterLink
+      >
+    </div>
+    <div class="flex gap-2 text-xl mt-5">
       <p>Not registered yet?</p>
       <RouterLink class="text-accent" to="/register">Register now!</RouterLink>
     </div>
