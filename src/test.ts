@@ -1,48 +1,70 @@
-import { importPKCS8, importSPKI } from "jose";
+import { importPKCS8, importSPKI, CompactSign, compactVerify } from "jose";
 
 const alg = "RS256";
-const pkcs8 = "-----BEGIN PRIVATE KEY-----" +
-    "MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC1jWk6+8LaJL6B" +
-    "4AAG2EsKPBfGQswPhKPkWt5aYwOEuKUamXnjplrHSzUuQEyLJxpgybR1uet5jJwV" +
-    "MhDsNhav0MCCQ/NYSNIz92ChRPa6idCaww+fPfFEMA9mfPVqL7SLIuAyHbJUi6Is" +
-    "/uk75F5ttrp9Mvgac2e96atURKSlIjAlQFvMoLZytRsPMTNyKFYDxVooZu0OHhLg" +
-    "r6Ai/8VvNDkencuJRgnvT4ZLODRS4SLgDufDFwr4+FGsPhlo0pS/e/w7kSTu5gJa" +
-    "0CVXp5W5DFosz1X9vUCK2YHOFgNjS+a24o4TVGSAEocSBzmf0mFF0XPRAJuxFQFq" +
-    "Zxdd/ouNAgMBAAECggEAAadhHwVuF/ift6Unuug7fsNfYBH5s+Z8a7ccMWyXep0H" +
-    "+/8L6jP4vboEqQAy8k2P4vPTbgMcjwXl4heLqeswN7fKGSWvUM2RBKIrQizTpo1c" +
-    "1hwSx1uUGA/sA/39alM27NGLg0lb94MyHgDQdRg2d/9jIYLWWb9VYZiAVAswCMUM" +
-    "BHu6wd4URV2oQjfGmNymzKvJdj6SrrQ96igU42i6SKTI7vuN1wYA//U9/BVwhRtA" +
-    "T4sOWZNfXpKGNw41msXw3QFi8ZJhGKwFlV1lYkB8jewo/xlyefC+Y/RrOuJhEKy7" +
-    "raNHurojw9+g6Cz5qK46QWwMSdMzY2dh9PgCT3JKYQKBgQDpmU1Xv+Ms/YO06LZc" +
-    "GxuoI4URU9h08xgsVBpTo0yrmuSXfBhM4itSL0EuFE6qNLdWrwvhkabrFKwvW3Vt" +
-    "NbcZ6u2tgqob13x87g7REj8ibj2z+hfP1OnCd9asOfP2peZCaSd49eaALiArsx5q" +
-    "pRYZ1ZRpWd3OYJmVlz+vo223VQKBgQDG9mcezw/PKcDIZslkkvn065PYd+sfptkJ" +
-    "+Ddeui665yY30XtHhHAKhuuisBVyulk3e3e04IMECu+aIkpRumCsmGpPK0GoKIOR" +
-    "sc1xlMso7rw+vlGmJ3ICtMElouFSLx5Oz62hwwGe2NpwCaBpEfCfEOmMBUqXBmVl" +
-    "q7fLckSTWQKBgQDAHARgWv2wfVk4iX2Xp++JypRf2K2WGGnT4uK3z/94zWybLEIr" +
-    "0IDCGPyosai0D6CLmG/T9V3pzNmCJNwgkWFg3jTTUjclqITHlVv4EuJ7JWB3SAEX" +
-    "Ocl41edlQk/hkzQXf7UnpEsJNWXdqnQkTlorqttf/LkORaFpRbbpciUD9QKBgQCH" +
-    "BIuyMp3t3c2/sVEV+U+6z2tDSQ28KwO6akFY/Uvc9iPPWU8pl0xZOHoLqybC9oa4" +
-    "ygbQLlN6mNlEZeS9VZdpSP1LwHUL4oJ2iox6eZjsrCX/BjRuZvJNt9Ai9Een9+W/" +
-    "YdvYnHcrDsodocrDwrLhnx5+MNEPb/27Yy6U13SF8QKBgQCbdZXKtyUSjxS9/sYc" +
-    "gkTcH3Z68M0fVYtJy+LIwiCGHHleKFYuNKoTtD8yzcDxXCX+hejFEZooUbQylNtv" +
-    "frxEZnRdd0h+xgmPNJj//rnGKyC0FwuPjYk0oeCTQ2ZxZ2mNFvu9ajtymfmfMghm" +
-    "PW5D0EdwBwlfze2mjbAg3SAEmg==" +
-    "-----END PRIVATE KEY-----";
-
+const pkcs8 = `-----BEGIN PRIVATE KEY-----
+MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDQMtRKc3atL0Af
+AWS38Tlye/1Ob8jIrFwNt2eHpWrDqRC6rWwt0f8Ro9ByigHKNCBnTUpx0DCf8DkI
+kWhvW1+Jj/O7rxOLlSYSMiHX0LciGtCoFzL3+6frkpXXcJbO5rSo+z5HLOldGMgg
+Km0QNd6mEe8S7fUj4V4bISzQrD3HLMYHxmkUO/MsXEcLoQVnWXsAjAVaul6nfwU3
+XOHfpt9KYPrbSGDoX/vWZjYu6aGfnPDADKNrgwmNn3GBhDehwTrKXWdwLD3df4H7
+bDgddB6tMSgLkOff1/qM4Tuc7bDNDzemxYJ9Y48Tshgb5C64B6QfXqvcYSx6chs6
+nBFAkoL5AgMBAAECggEAewC8uWuz/qd+y5KoLaBfn0qvoeqbBiwGirgDe3l4NTaq
+Qo/47K03c/WDTlhIrGzVhBJ+2/Ty9VsYZv55Y+jo7b3VctoBwyKQBooFwpp1x7lt
+8xEZtLbCQ4Qr8Md84aodrAQbjDN1f+IHQjGuk7gv3Y+U3mslvFgGoCKedn58VTIF
+r0mei5fJNcTcqJY/XZCzwE9dXvA4chk4UOpALcA6U+E4S4p1jFsxKIo87K4Nk9ZF
+2E/CU/lLy8LNaDQIb407GsbcyidjYPi9IAxVVtcuoK9PSPTWLf2ujlJlnAr1QEtJ
+BYzpnkak1SQ4esuPEHiAPkWI8a42mXVpDbOKwe6SDQKBgQD9FZ8vFNMK7lOTnOFC
+w3yczUMvCCP5zOpLTzMRsn9c3Ysr22ysfyRPvKTouWj86y9WbMFUUESZczZGW0dB
+oYKd95cRemxcuwv/hvuRXE+zn2xWWpaN/kSyJbAcp/04wuEh9W1dHru7giQL9Ol9
+XSPTz0KiFLaOPhAVprqBeMGppwKBgQDSmNVNNBHzbPvFqjIjG0v7mJa+1fBj89i9
+CjrZ3NGpf/PlwIT1RgHooFI8SEB86oNe6+95bF9Yl2iPJTJ6I6wofw6eQl1+Qp3W
+WkY8CH/UOkXaop9/jlWci0kineYL/uI00Ler2e+1ZN2isDL3XCYlBHdP1ibZ0rNl
+TTzBHTzCXwKBgCSwpsQvk6zpAirLOojwSDd/NncyCe0j/O9wCupM41P2Nj/kbqvP
+PtdkdM/cWVEZU2KHH7v2awuH/V1TzE/Cd2opQ7hf9Ce5YjLoQb5AELnsqcsXFO5+
+5zygZBizbe11qye+Kd2vH+4+HrWxCsyG3TPOv006DYEvlCtfYXh1pjXPAoGANSmf
+rv2WCn1YkW2FepdJdxnt8/7N0G2eKRqMALNdugwy5azT45bopHDUUaNrpB0PTMcC
+jQRujU6rdndNZsfajd6FMi5Oq7DlZ1cio8UBf/G18Jtc6DZmJj6DF9oEWMLfF7YY
+p6k8ee4chRU1yHvapT2bYOwOoq4t20TEMXvP+sECgYBycLpwh6z5awB/E4/WGcN2
+uv43fu3UKRhnirWHwW0ijGP5OLDs1ej5vY+P6y02Q5QmRa9hth+wCmo++qHpZHIp
+JXvWi0v1PV79pgJKfPC/SyppuHZt8Pz1/fnZr5uB4NEUSucf5dEFy06aY5XsyAoa
+IoJpUlhuzjiacqjocizuqw==
+-----END PRIVATE KEY-----
+`;
 
 const privateKey = await importPKCS8(pkcs8, alg);
 console.log(privateKey);
 
 const alg2 = 'RS256'
-const spki = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwhYOFK2Ocbbpb/zVypi9
-SeKiNUqKQH0zTKN1+6fpCTu6ZalGI82s7XK3tan4dJt90ptUPKD2zvxqTzFNfx4H
-HHsrYCf2+FMLn1VTJfQazA2BvJqAwcpW1bqRUEty8tS/Yv4hRvWfQPcc2Gc3+/fQ
-OOW57zVy+rNoJc744kb30NjQxdGp03J2S3GLQu7oKtSDDPooQHD38PEMNnITf0pj
-+KgDPjymkMGoJlO3aKppsjfbt/AH6GGdRghYRLOUwQU+h+ofWHR3lbYiKtXPn5dN
-24kiHy61e3VAQ9/YAZlwXC/99GGtw/NpghFAuM4P1JDn0DppJldy3PGFC0GfBCZA
-SwIDAQAB
------END PUBLIC KEY-----`
+    const spki = `-----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0DLUSnN2rS9AHwFkt/E5
+    cnv9Tm/IyKxcDbdnh6Vqw6kQuq1sLdH/EaPQcooByjQgZ01KcdAwn/A5CJFob1tf
+    iY/zu68Ti5UmEjIh19C3IhrQqBcy9/un65KV13CWzua0qPs+RyzpXRjIICptEDXe
+    phHvEu31I+FeGyEs0Kw9xyzGB8ZpFDvzLFxHC6EFZ1l7AIwFWrpep38FN1zh36bf
+    SmD620hg6F/71mY2Lumhn5zwwAyja4MJjZ9xgYQ3ocE6yl1ncCw93X+B+2w4HXQe
+    rTEoC5Dn39f6jOE7nO2wzQ83psWCfWOPE7IYG+QuuAekH16r3GEsenIbOpwRQJKC
+    +QIDAQAB
+    -----END PUBLIC KEY-----
+`;
 const publicKey = await importSPKI(spki, alg2);
 console.log(publicKey);
+
+const postContent = {
+    content: ":rocket:",
+    topics: ["niceRockets"]
+};
+const signature = await new CompactSign(
+  new TextEncoder().encode(JSON.stringify(postContent))
+)
+    .setProtectedHeader({ alg: alg2 })
+    .sign(privateKey);
+
+console.log(signature);
+
+const body = {
+    handle: "@tigas",
+    content: signature,
+}
+
+const content = await compactVerify(body.content, publicKey)
+    .then(res => new TextDecoder().decode(res.payload));
+console.log(content);
