@@ -15,6 +15,7 @@ async function register(handle: string, key: string) {
     });
   if (response) {
     console.log("Registered the user and got a response of", response);
+    sessionStorage.setItem("handle", handle);
     router.push({ name: "home" });
   }
 }
