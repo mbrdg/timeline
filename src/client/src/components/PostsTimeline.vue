@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { Post } from '@/types/Post';
-import PostCard from '@/components/PostCard.vue'
+import type { Post } from "@/types/Post";
+import PostCard from "@/components/PostCard.vue";
 
 export interface Timeline {
   posts: Map<string, Post>;
@@ -12,8 +12,8 @@ const props = defineProps<Timeline>();
 <template>
   <section class="self-start pt-10 w-1/2">
     <h1 class="font-bold text-5xl">Timeline</h1>
-    <div v-for="id in props.posts.keys()" class="flex flex-col">
-      <PostCard :post="props.posts.get(id)" :name="props.name" :id="id" />
+    <div v-for="[key, value] in posts" v-bind:key="key" class="flex flex-col">
+      <PostCard :post="value" :name="props.name" :id="key" />
     </div>
   </section>
 </template>
