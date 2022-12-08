@@ -1,10 +1,11 @@
 <script setup lang="ts">
-export interface UserInfo {
+export interface UserFormInfo {
   handle: string;
   privateKey: string;
+  keyInvalid: boolean;
 }
 
-defineProps<UserInfo>();
+defineProps<UserFormInfo>();
 defineEmits(["update:handle", "update:privateKey"]);
 </script>
 
@@ -28,6 +29,9 @@ defineEmits(["update:handle", "update:privateKey"]);
       class="bg-superdark border-[1.5px] px-3 py-3 rounded-2xl w-4/5 outline-none placeholder:text-xl text-xl"
       placeholder="Enter your private key here"
     />
+    <p v-if="keyInvalid" class="text-red-500">
+      The specified private key is not valid. Please try again.
+    </p>
     <div class="flex gap-2 text-xl mt-5">
       <p>Go to your</p>
       <RouterLink class="text-accent" :to="`/${handle}`"

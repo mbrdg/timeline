@@ -7,10 +7,14 @@ import { ref, inject, onBeforeMount } from "vue";
 const api = inject("api") as AxiosInstance;
 const handle = ref("");
 const key = ref("");
+const keyInvalid = ref(false);
 
 function getTimeline(): void {
   console.log("Get Timeline not yet implemented", api.name);
 }
+const notifySidebar = () => {
+  keyInvalid.value = true;
+};
 const getHandle = () => {
   let user = sessionStorage.getItem("handle");
   if (user) {
@@ -31,9 +35,17 @@ onBeforeMount(() => {
         <img src="../assets/alef.svg" />
         <h1 class="text-5xl text-accent font-bold">Homepage</h1>
       </section>
-      <PostCreationCard :handle="handle" :private-key="key" />
+      <PostCreationCard
+        @pk-invalid="notifySidebar"
+        :handle="handle"
+        :private-key="key"
+      />
       <!-- Insert timeline here when available -->
     </main>
-    <TheSidebar v-model:private-key="key" v-model:handle="handle" />
+    <TheSidebar
+      :key-invalid="keyInvalid"
+      v-model:private-key="key"
+      v-model:handle="handle"
+    />
   </main>
 </template>

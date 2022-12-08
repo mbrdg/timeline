@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, inject } from "vue";
 import type { AxiosInstance } from "axios";
+import * as jose from "jose";
 export interface UserInfo {
   handle: string;
   privateKey: string;
 }
 
 const props = defineProps<UserInfo>();
+const emit = defineEmits(["pk-invalid"]);
 
 const api = inject("api") as AxiosInstance;
 const content = ref("");
@@ -20,11 +22,34 @@ const disableButton = computed(() => {
   );
 });
 
+async function getSignature(postContent: string) {
+  const algorithm = "RS512";
+  try {
+    // Must be in PKCS8 format
+    const privateKey = await jose.importPKCS8(props.privateKey, algorithm);
+
+    const signature = await new jose.CompactSign(
+      new TextEncoder().encode(postContent)
+    )
+      .setProtectedHeader({ alg: algorithm })
+      .sign(privateKey);
+
+    console.log("The message's signature is");
+    return signature;
+  } catch (error) {
+    console.error(error);
+    emit("pk-invalid");
+  }
+}
+
 async function publish(postContent: string) {
+  const signature = await getSignature(postContent);
+  console.log("The signature is", signature);
   const response = await api
     .post("/publish", {
       handle: props.handle,
       content: postContent,
+      signature: signature,
     })
     .catch((error) => {
       console.error("Error publishing post:", error.message, error.code);
