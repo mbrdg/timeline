@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Post } from '@/types/Post';
-import type { AxiosInstance } from 'axios';
-import { inject, computed, ref, reactive } from 'vue';
+import type { Post } from "@/types/Post";
+import type { AxiosInstance } from "axios";
+import { inject, computed, reactive } from "vue";
 export interface PostCard {
   post: Post;
   name: string;
@@ -13,12 +13,11 @@ const likeCount = reactive({ count: props.post.likes.length });
 const isLiked = reactive({ isLiked: props.post.likes.includes(props.name) });
 
 const repostCount = reactive({ count: props.post.reposts.length });
-const isReposted = reactive({ isReposted: props.post.reposts.includes(props.name) });
-
-
+const isReposted = reactive({
+  isReposted: props.post.reposts.includes(props.name),
+});
 
 function timeDifference(current: number, previous: number) {
-
   var msPerMinute = 60 * 1000;
   var msPerHour = msPerMinute * 60;
   var msPerDay = msPerHour * 24;
@@ -28,17 +27,17 @@ function timeDifference(current: number, previous: number) {
   var elapsed = current - previous;
   console.log(current, previous);
   if (elapsed < msPerMinute) {
-    return Math.round(elapsed / 1000) + ' seconds ago';
+    return Math.round(elapsed / 1000) + " seconds ago";
   } else if (elapsed < msPerHour) {
-    return Math.round(elapsed / msPerMinute) + ' minutes ago';
+    return Math.round(elapsed / msPerMinute) + " minutes ago";
   } else if (elapsed < msPerDay) {
-    return Math.round(elapsed / msPerHour) + ' hours ago';
+    return Math.round(elapsed / msPerHour) + " hours ago";
   } else if (elapsed < msPerMonth) {
-    return Math.round(elapsed / msPerDay) + ' days ago';
+    return Math.round(elapsed / msPerDay) + " days ago";
   } else if (elapsed < msPerYear) {
-    return Math.round(elapsed / msPerMonth) + ' months ago';
+    return Math.round(elapsed / msPerMonth) + " months ago";
   } else {
-    return Math.round(elapsed / msPerYear) + ' years ago';
+    return Math.round(elapsed / msPerYear) + " years ago";
   }
 }
 
@@ -46,7 +45,7 @@ async function like() {
   if (!isLiked.isLiked) {
     await api.post("/like", {
       handle: props.name,
-      id: props.id
+      id: props.id,
     });
     likeCount.count++;
     isLiked.isLiked = true;
@@ -57,27 +56,25 @@ async function repost() {
   if (!isReposted.isReposted) {
     await api.post("/repost", {
       handle: props.name,
-      id: props.id
+      id: props.id,
     });
     repostCount.count++;
     isReposted.isReposted = true;
   }
-
 }
-
-
-
 </script>
 
 <template>
-
   <div class="mx-2 mt-2" v-if="props.name !== post.handle">
     <div>{{ props.name }} reposted</div>
   </div>
-  <div class="container flex flex-col bg-lightdark rounded-md p-5 my-2 gap-2 shadow-md">
+  <div
+    class="container flex flex-col bg-lightdark rounded-md p-5 my-2 gap-2 shadow-md"
+  >
     <div class="flex flex-col justify-between">
       <div class="font-semibold text-lg">{{ post.handle }}</div>
-      <div class="font-light text-sm">{{ timeDifference(Date.now(), (new Date(post.timestamp)).getTime()) }}
+      <div class="font-light text-sm">
+        {{ timeDifference(Date.now(), new Date(post.timestamp).getTime()) }}
       </div>
     </div>
     <div>{{ post.content }}</div>
@@ -88,16 +85,27 @@ async function repost() {
           <img src="@/assets/repeat_filled.svg" />
         </button>
         <button v-else><img src="@/assets/repeat.svg" /></button>
-        <div>{{ computed(() => { return repostCount.count }) }}</div>
+        <div>
+          {{
+            computed(() => {
+              return repostCount.count;
+            })
+          }}
+        </div>
       </form>
       <form @submit.prevent="like" class="flex flex-row gap-1">
         <button v-if="isLiked.isLiked">
           <img src="@/assets/heart_filled.svg" />
         </button>
         <button v-else><img src="@/assets/heart.svg" /></button>
-        <div>{{ computed(() => { return likeCount.count }) }}</div>
+        <div>
+          {{
+            computed(() => {
+              return likeCount.count;
+            })
+          }}
+        </div>
       </form>
     </div>
   </div>
-
 </template>
