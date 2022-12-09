@@ -1,51 +1,38 @@
 <script setup lang="ts">
 import PostCreationCard from "../components/PostCreationCard.vue";
-import TheSidebar from "../components/TheSidebar.vue";
 import type { AxiosInstance } from "axios";
-import { ref, inject, onBeforeMount } from "vue";
+import { inject, onBeforeMount, type Ref } from "vue";
 
 const api = inject("api") as AxiosInstance;
-const handle = ref("");
-const key = ref("");
-const keyInvalid = ref(false);
+
+const key = inject("key") as Ref<string>;
+const handle = inject("handle") as Ref<string>;
 
 function getTimeline(): void {
   console.log("Get Timeline not yet implemented", api.name);
 }
+
+const emit = defineEmits(["pk-invalid"]);
 const notifySidebar = () => {
-  keyInvalid.value = true;
+  emit("pk-invalid");
 };
-const getHandle = () => {
-  let user = sessionStorage.getItem("handle");
-  if (user) {
-    handle.value = user;
-  }
-};
+
 onBeforeMount(() => {
-  getHandle();
   getTimeline();
 });
 </script>
 
 <template>
-  <main class="w-full flex">
-    <aside class="w-1/3"></aside>
-    <main class="w-1/3 m-auto h-full flex flex-col items-center pt-10 gap-10">
-      <section class="flex gap-6 items-center">
-        <img src="../assets/aleph.svg" />
-        <h1 class="text-5xl text-accent font-bold">Homepage</h1>
-      </section>
-      <PostCreationCard
-        @pk-invalid="notifySidebar"
-        :handle="handle"
-        :private-key="key"
-      />
-      <!-- Insert timeline here when available -->
-    </main>
-    <TheSidebar
-      :key-invalid="keyInvalid"
-      v-model:private-key="key"
-      v-model:handle="handle"
+  <main class="w-full m-auto h-full flex flex-col items-center pt-10 gap-10">
+    <section class="flex gap-6 items-center">
+      <img src="../assets/aleph.svg" />
+      <h1 class="text-5xl text-accent font-bold">Homepage</h1>
+    </section>
+    <PostCreationCard
+      @pk-invalid="notifySidebar"
+      :handle="handle"
+      :private-key="key"
     />
+    <!-- Insert timeline here when available -->
   </main>
 </template>

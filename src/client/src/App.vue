@@ -1,19 +1,48 @@
 <script setup lang="ts">
-import { RouterView } from "vue-router";
+import { RouterView, useRoute } from "vue-router";
+import TheSidebar from "./components/TheSidebar.vue";
 import axios from "axios";
-import { provide } from "vue";
-const BASE_URL = "http://localhost:42921";
+import { ref, provide, onBeforeMount, computed } from "vue";
+
+const BASE_URL = "http://localhost:38119";
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 5000,
 });
 provide("api", api);
+
+const key = ref("");
+const handle = ref("");
+provide("key", key);
+provide("handle", handle);
+
+const keyInvalid = ref(false);
+const notifySidebar = () => {
+  keyInvalid.value = true;
+};
+
+const route = useRoute();
+const isRegister = computed(() => {
+  return route.path === "/register";
+});
+
+const getHandle = () => {
+  let user = sessionStorage.getItem("handle");
+  if (user) {
+    handle.value = user;
+  }
+};
 </script>
 
 <template>
-  <div id="wrapper" class="grid min-h-full bg-dark text-light">
-    <header></header>
-    <RouterView />
-    <footer></footer>
+  <div id="wrapper" class="grid grid-cols-3 min-h-full bg-dark text-light">
+    <aside></aside>
+    <RouterView @registered="getHandle" @pk-invalid="notifySidebar" />
+    <TheSidebar
+      v-if="!isRegister"
+      :key-invalid="keyInvalid"
+      v-model:private-key="key"
+      v-model:handle="handle"
+    />
   </div>
 </template>

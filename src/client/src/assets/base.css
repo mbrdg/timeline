@@ -9,7 +9,3 @@ body,
   height: 100%;
   width: 100%;
 }
-
-#wrapper {
-  grid-template-rows: auto 1fr auto;
-}

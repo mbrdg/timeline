@@ -51,7 +51,7 @@ onBeforeMount(async () => {
 </script>
 
 <template>
-  <main class="w-3/5 flex flex-col mx-auto">
+  <main class="w-full flex flex-col mx-auto">
     <ProfileDescription
       :name="user?.handle || ''"
       :followers="user?.followers || []"

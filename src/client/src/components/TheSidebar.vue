@@ -10,7 +10,7 @@ defineEmits(["update:handle", "update:privateKey"]);
 </script>
 
 <template>
-  <aside class="w-1/3 flex flex-col pt-36 pl-10">
+  <aside class="flex flex-col pt-36 pl-10">
     <div class="text-2xl text-accent">These are your informations:</div>
 
     <label class="text-xl my-5">Your handle:</label>
