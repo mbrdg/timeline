@@ -20,6 +20,7 @@ import { sha256 } from "multiformats/hashes/sha2";
 
 import {
   TLPost,
+  TLPostId,
   TLInteraction,
   TLInteractionMetadata,
   TLPostInteraction,
@@ -29,9 +30,18 @@ import {
 import { TLUser, TLUserHandle } from "./tluser.js";
 import { TLConnection } from "./social/tlconnection.js";
 
+import { importSPKI, compactVerify } from "jose";
+
 const main = async () => {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder("utf-8");
+  const authAlgorithm = "RS256";
+
+  const update = <T>(value: Uint8Array, callback: (obj: T) => T) => {
+    let obj = JSON.parse(decoder.decode(value)) as T;
+    obj = callback(obj);
+    return encoder.encode(JSON.stringify(obj));
+  };
 
   const [hostname, port] = ["localhost", 0];
   const app = express();
@@ -86,33 +96,46 @@ const main = async () => {
   console.info(`🐦 libp2p node has started`);
 
   app.post("/register", (req, res) => {
-    const { handle } = req.body as Pick<TLUser, "handle">;
+    const { handle, publicKey } = req.body as { handle: TLUserHandle } & {
+      publicKey: string;
+    };
     const user: Readonly<TLUser> = {
       handle: handle,
+      publicKey: publicKey,
       followers: [],
       following: [],
       timeline: [],
-    };
-    console.log(`🐦 Received registration request\n`, user);
+    } as Readonly<TLUser>;
 
-    const key = createCID({ handle: user.handle });
     const value = encoder.encode(JSON.stringify(user));
-    const register = () => {
+
+    console.log(`🐦 Received registration request: ${handle}`);
+
+    const key = createCID({ handle: handle });
+    const register = () =>
       node.contentRouting
         .put(key.bytes, value)
         .then(() => node.contentRouting.provide(key))
-        .then(() =>
-          res.status(201).send({ message: `${handle} is now registered` })
-        )
-        .catch(() =>
-          res.status(400).send({ message: `Unable to register ${handle}` })
-        );
-    };
+        .catch(() => {
+          throw new Error(`Unable to register ${handle}`);
+        });
+
+    const validate = () =>
+      importSPKI(publicKey, authAlgorithm).catch(() => {
+        throw new Error(`The public keys must be in SPKI format`);
+      });
 
     node.contentRouting
       .get(key.bytes)
       .then(() => res.status(303).send({ message: `${handle} already exists` }))
-      .catch(register);
+      .catch(() =>
+        validate()
+          .then(register)
+          .then(() =>
+            res.status(201).send({ message: `${handle} is now registered` })
+          )
+          .catch((err: Error) => res.status(400).send({ message: err.message }))
+      );
   });
 
   app.get("/timeline/:handle", (req, res) => {
@@ -228,30 +251,65 @@ const main = async () => {
   });
 
   app.post("/publish", (req, res) => {
-    const { handle, content, topics } = req.body as Pick<
-      TLPost,
-      "handle" | "content" | "topics"
-    >;
+    const { handle, signature } = req.body as { handle: TLUserHandle } & {
+      signature: string;
+    };
     const timestamp = new Date();
 
-    if (content.length === 0) {
-      res.status(400).send("A post can not have an empty content");
-      return;
-    }
-
-    const post: Readonly<TLPost> = {
-      handle: handle,
-      content: content,
-      timestamp: timestamp,
-      topics: topics,
-      reposts: [],
-      likes: [],
+    type TLValidationResult = { user: TLUser } & {
+      post: Pick<TLPost, "content" | "topics">;
     };
-    console.info(`🐦 Received publishing request\n`, post);
+    const validator = (user: TLUser) =>
+      importSPKI(user.publicKey, authAlgorithm)
+        .then((publicKey) => compactVerify(signature, publicKey))
+        .then(
+          (res) =>
+            JSON.parse(decoder.decode(res.payload)) as Pick<
+              TLPost,
+              "content" | "topics"
+            >
+        )
+        .then((post) => ({ user, post } as TLValidationResult))
+        .catch(() => {
+          throw new Error("Signature and public key mismatch");
+        });
+
+    const createPost = (props: TLValidationResult) => {
+      if (props.post.content.length === 0) {
+        throw new Error("A post can not have an empty content");
+      }
+
+      const post: Readonly<TLPost> = {
+        handle: handle,
+        content: props.post.content,
+        timestamp: timestamp,
+        topics: props.post.topics,
+        reposts: [],
+        likes: [],
+      };
+
+      const value = encoder.encode(JSON.stringify(post));
+      store(postCID, value);
+      return props;
+    };
+
+    const createInteraction = (props: TLValidationResult) => {
+      const interaction: TLInteractionMetadata = {
+        who: handle,
+        id: postCID.toString(),
+        interaction: TLPostInteraction.POST,
+        timestamp: timestamp,
+      };
+      props.user.timeline.push(interaction);
+      const value = encoder.encode(JSON.stringify(props.user));
+      store(userCID, value);
+      return props;
+    };
+
+    console.info(`🐦 Received publishing request from ${handle}`);
 
     const userCID = createCID({ handle: handle });
-    const postCID = createCID({ handle: handle, timestamp: post.timestamp });
-    const postValue = encoder.encode(JSON.stringify(post));
+    const postCID = createCID({ handle: handle, timestamp: timestamp });
 
     const store = (k: CID, v: Uint8Array) => {
       node.contentRouting
@@ -260,71 +318,64 @@ const main = async () => {
         .catch(console.error);
     };
 
-    const createTopic = (topicCID: CID, topic: TLPostTopic) => {
+    const createTopic = (topic: TLPostTopic) => {
       const topicInfo: Readonly<TLTopic> = {
         topic: topic,
         timeline: [postCID.toString()],
       };
       const topicValue = encoder.encode(JSON.stringify(topicInfo));
-      return store(topicCID, topicValue);
+      return topicValue;
     };
 
-    const addPostToTopic = () => {
+    const addPostToTopic = (props: TLValidationResult) => {
       return Promise.all(
-        topics.map((topic) => {
+        props.post.topics.map((topic) => {
           const topicCID = createCID({ topic: topic });
-          return (async () => {
-            let value = await node.contentRouting
-              .get(topicCID.bytes)
-              .then((res) => res)
-              .catch(() => {
-                createTopic(topicCID, topic);
-                return Uint8Array.from([]);
-              });
-            if (value.length === 0) return;
-
-            const topicObj = JSON.parse(decoder.decode(value)) as TLTopic;
-            topicObj.timeline.push(postCID.toString());
-            value = encoder.encode(JSON.stringify(topicObj));
-            store(topicCID, value);
-          })();
+          return node.contentRouting
+            .get(topicCID.bytes)
+            .then((value) =>
+              update<TLTopic>(value, (topic) => {
+                topic.timeline.push(postCID.toString());
+                return topic;
+              })
+            )
+            .catch(() => createTopic(topic))
+            .then((value) => store(topicCID, value));
         })
       );
     };
 
     node.contentRouting
       .get(userCID.bytes)
-      .then((value) => {
-        store(postCID, postValue);
-        return value;
-      })
-      .then((user) => JSON.parse(decoder.decode(user)) as TLUser)
-      .then((user) => {
-        const interaction: TLInteractionMetadata = {
-          who: user.handle,
-          id: postCID.toString(),
-          interaction: TLPostInteraction.POST,
-          timestamp: timestamp,
-        };
-        user.timeline.push(interaction);
-
-        return user;
-      })
-      .then((user) => encoder.encode(JSON.stringify(user)))
-      .then((value) => store(userCID, value))
+      .then((value) => JSON.parse(decoder.decode(value)) as TLUser)
+      .then(validator)
+      .then(createPost)
+      .then(createInteraction)
       .then(addPostToTopic)
       .then(() => res.status(201).send({ id: postCID.toString() }))
-      .catch(() =>
-        res.status(400).send({ message: `Unable to publish the post` })
-      );
+      .catch((err: Error) => res.status(400).send({ message: err.message }));
   });
 
   app.post("/repost", (req, res) => {
-    const { handle, id } = req.body as TLInteraction;
-    console.info(`🐦 Received repost request ${handle}-${id}\n`);
+    const { handle, signature } = req.body as { handle: TLUserHandle } & {
+      signature: string;
+    };
+    console.info(`🐦 Received repost request from ${handle}\n`);
 
-    const postCID = CID.parse(id);
     const userCID = createCID({ handle: handle });
+
+    type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
+    const validator = (user: TLUser) =>
+      importSPKI(user.publicKey, authAlgorithm)
+        .then((publicKey) => compactVerify(signature, publicKey))
+        .then(
+          (res) =>
+            JSON.parse(decoder.decode(res.payload)) as Pick<TLInteraction, "id">
+        )
+        .then((post) => ({ user, post: post.id } as TLValidatorInteraction))
+        .catch(() => {
+          throw new Error("Signature and public key mismatch");
+        });
 
     const store = (k: CID, v: Uint8Array) => {
       node.contentRouting
@@ -333,49 +384,71 @@ const main = async () => {
         .catch(console.error);
     };
 
-    const updatePost = node.contentRouting
-      .get(postCID.bytes)
-      .then((value) => JSON.parse(decoder.decode(value)) as TLPost)
-      .then((post) => {
-        if (post.reposts.includes(handle))
-          throw new Error(`${handle} already reposted ${id}`);
+    const updatePost = (id: TLPostId) => {
+      const postCID = CID.parse(id);
+      node.contentRouting
+        .get(postCID.bytes)
+        .then((value) =>
+          update<TLPost>(value, (post) => {
+            if (post.reposts.includes(handle))
+              throw new Error(`${handle} already reposted ${id}`);
 
-        post.reposts.push(handle);
-        return post;
-      })
-      .then((post) => encoder.encode(JSON.stringify(post)))
-      .then((value) => store(postCID, value))
-      .catch(console.error);
+            post.reposts.push(handle);
+            return post;
+          })
+        )
+        .then((value) => store(postCID, value))
+        .catch((err) => {
+          throw err;
+        });
+    };
 
-    const updateUser = node.contentRouting
+    const updateUser = (props: TLValidatorInteraction) => {
+      const interaction: TLInteractionMetadata = {
+        who: props.user.handle,
+        id: props.post,
+        interaction: TLPostInteraction.REPOST,
+        timestamp: new Date(),
+      };
+      props.user.timeline.push(interaction);
+      const value = encoder.encode(JSON.stringify(props.user));
+      store(userCID, value);
+    };
+
+    node.contentRouting
       .get(userCID.bytes)
       .then((value) => JSON.parse(decoder.decode(value)) as TLUser)
-      .then((user) => {
-        const interaction: TLInteractionMetadata = {
-          who: user.handle,
-          id: id,
-          interaction: TLPostInteraction.REPOST,
-          timestamp: new Date(),
-        };
-        user.timeline.push(interaction);
-
-        return user;
-      })
-      .then((user) => encoder.encode(JSON.stringify(user)))
-      .then((value) => store(userCID, value))
-      .catch(console.error);
-
-    Promise.all([updatePost, updateUser])
-      .then(() => res.status(200).send({ id: id }))
+      .then(validator)
+      .then((props) =>
+        Promise.all([updatePost(props.post), updateUser(props)])
+          .then(() => res.status(200).send({ id: props.post }))
+          .catch((err: Error) => {
+            throw err;
+          })
+      )
       .catch((err: Error) => res.status(400).send({ message: err.message }));
   });
 
   app.post("/like", (req, res) => {
-    const { handle, id } = req.body as TLInteraction;
-    console.info(`🐦 Received repost request ${handle}-${id}\n`);
+    const { handle, signature } = req.body as { handle: TLUserHandle } & {
+      signature: string;
+    };
+    console.info(`🐦 Received like request from ${handle}}\n`);
 
-    const postCID = CID.parse(id);
     const userCID = createCID({ handle: handle });
+
+    type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
+    const validator = (user: TLUser) =>
+      importSPKI(user.publicKey, authAlgorithm)
+        .then((publicKey) => compactVerify(signature, publicKey))
+        .then(
+          (res) =>
+            JSON.parse(decoder.decode(res.payload)) as Pick<TLInteraction, "id">
+        )
+        .then((post) => ({ user, post: post.id } as TLValidatorInteraction))
+        .catch(() => {
+          throw new Error("Signature and public key mismatch");
+        });
 
     const store = (k: CID, v: Uint8Array) => {
       node.contentRouting
@@ -384,81 +457,127 @@ const main = async () => {
         .catch(console.error);
     };
 
-    const updatePost = node.contentRouting
-      .get(postCID.bytes)
-      .then((value) => JSON.parse(decoder.decode(value)) as TLPost)
-      .then((post) => {
-        if (post.likes.includes(handle))
-          throw new Error(`${handle} has already reposted ${id}`);
+    const updatePost = (id: TLPostId) => {
+      const postCID = CID.parse(id);
+      node.contentRouting
+        .get(postCID.bytes)
+        .then((value) =>
+          update<TLPost>(value, (post) => {
+            if (post.likes.includes(handle))
+              throw new Error(`${handle} has already reposted ${id}`);
 
-        post.likes.push(handle);
-        return post;
-      })
-      .then((post) => encoder.encode(JSON.stringify(post)))
-      .then((value) => store(postCID, value))
-      .catch(console.error);
+            post.likes.push(handle);
+            return post;
+          })
+        )
+        .then((value) => store(postCID, value))
+        .catch(console.error);
+    };
 
-    const updateUser = node.contentRouting
+    const updateUser = (props: TLValidatorInteraction) => {
+      const interaction: TLInteractionMetadata = {
+        who: props.user.handle,
+        id: props.post,
+        interaction: TLPostInteraction.LIKE,
+        timestamp: new Date(),
+      };
+      props.user.timeline.push(interaction);
+      const value = encoder.encode(JSON.stringify(props.user));
+      store(userCID, value);
+    };
+
+    node.contentRouting
       .get(userCID.bytes)
       .then((value) => JSON.parse(decoder.decode(value)) as TLUser)
-      .then((user) => {
-        const interaction: TLInteractionMetadata = {
-          who: user.handle,
-          id: id,
-          interaction: TLPostInteraction.LIKE,
-          timestamp: new Date(),
-        };
-        user.timeline.push(interaction);
-
-        return user;
-      })
-      .then((user) => encoder.encode(JSON.stringify(user)))
-      .then((value) => store(userCID, value))
-      .catch(console.error);
-
-    Promise.all([updatePost, updateUser])
-      .then(() => res.status(200).send({ id: id }))
+      .then(validator)
+      .then((props) =>
+        Promise.all([updatePost(props.post), updateUser(props)])
+          .then(() => res.status(200).send({ id: props.post }))
+          .catch((err: Error) => {
+            throw err;
+          })
+      )
       .catch((err: Error) => res.status(400).send({ message: err.message }));
   });
 
   app.post("/follow", (req, res) => {
-    const { from, to } = req.body as TLConnection;
+    const { from, signature } = req.body as Pick<TLConnection, "from"> & {
+      signature: string;
+    };
 
-    const toCID = createCID({ handle: to });
     const fromCID = createCID({ handle: from });
 
-    const followed = node.contentRouting
-      .get(toCID.bytes)
-      .then((value) => JSON.parse(decoder.decode(value)) as TLUser)
-      .then((user) => {
-        if (user.followers.includes(from))
-          throw new Error(`${from} already follows ${to}`);
+    const store = (k: CID, v: Uint8Array, p: CID) => {
+      node.contentRouting
+        .put(k.bytes, v)
+        .then(() => node.contentRouting.provide(p))
+        .catch(console.error);
+    };
 
-        user.followers.push(from);
-        return user;
-      })
-      .then((value) => encoder.encode(JSON.stringify(value)))
-      .then((value) => node.contentRouting.put(toCID.bytes, value))
-      .catch(console.error);
+    interface TLUserCID {
+      handle: TLUserHandle;
+      cid: CID;
+    }
+    type TLValidatorFollow = { from: TLUser } & { to: TLUserCID };
+    const validator = (user: TLUser) =>
+      importSPKI(user.publicKey, authAlgorithm)
+        .then((publicKey) => compactVerify(signature, publicKey))
+        .then(
+          (res) =>
+            JSON.parse(decoder.decode(res.payload)) as Pick<TLConnection, "to">
+        )
+        .then(
+          (userTo) =>
+            ({
+              handle: userTo.to,
+              cid: createCID({ handle: userTo.to }),
+            } as TLUserCID)
+        )
+        .then((userTo) => ({ from: user, to: userTo } as TLValidatorFollow))
+        .catch(() => {
+          throw new Error("Signature and public key mismatch");
+        });
 
-    const follower = node.contentRouting
+    const followed = (to: TLUserCID) =>
+      node.contentRouting
+        .get(to.cid.bytes)
+        .then((value) =>
+          update<TLUser>(value, (user) => {
+            if (user.followers.includes(from))
+              throw new Error(`${from} already follows ${to.handle}`);
+
+            user.followers.push(from);
+            return user;
+          })
+        )
+        .then((value) => node.contentRouting.put(to.cid.bytes, value))
+        .catch(console.error);
+
+    const follower = (props: TLValidatorFollow) => {
+      if (props.from.following.includes(props.to.handle))
+        throw new Error(`${props.to.handle} is already followed by ${from}`);
+
+      props.from.following.push(props.to.handle);
+      const value = encoder.encode(JSON.stringify(props.from));
+      store(fromCID, value, props.to.cid);
+    };
+
+    node.contentRouting
       .get(fromCID.bytes)
       .then((value) => JSON.parse(decoder.decode(value)) as TLUser)
-      .then((user) => {
-        if (user.following.includes(to))
-          throw new Error(`${to} is already followed by ${from}`);
-
-        user.following.push(to);
-        return user;
-      })
-      .then((value) => encoder.encode(JSON.stringify(value)))
-      .then((value) => node.contentRouting.put(fromCID.bytes, value))
-      .then(() => node.contentRouting.provide(toCID))
-      .catch(console.error);
-
-    Promise.all([followed, follower])
-      .then(() =>
-        res.status(200).send({ message: `${from} now follows ${to}` })
+      .then(validator)
+      .then((props) =>
+        Promise.all([followed(props.to), follower(props)])
+          .then(() =>
+            res
+              .status(200)
+              .send({
+                message: `${props.from.handle} now follows ${props.to.handle}`,
+              })
+          )
+          .catch((err: Error) => {
+            throw err;
+          })
       )
       .catch((err: Error) => res.status(400).send({ message: err.message }));
   });

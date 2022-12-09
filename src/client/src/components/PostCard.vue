@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { Post } from "@/types/Post";
 import type { AxiosInstance } from "axios";
-import { inject, computed, reactive } from "vue";
+import { inject, computed, reactive, type Ref } from "vue";
+import * as jose from "jose";
 export interface PostCard {
   post: Post;
   name: string;
@@ -9,6 +10,9 @@ export interface PostCard {
 }
 const props = defineProps<PostCard>();
 const api = inject("api") as AxiosInstance;
+const handle = inject("handle") as Ref<string>;
+const key = inject("key") as Ref<string>;
+
 const likeCount = reactive({ count: props.post.likes.length });
 const isLiked = reactive({ isLiked: props.post.likes.includes(props.name) });
 
@@ -40,11 +44,30 @@ function timeDifference(current: number, previous: number) {
   }
 }
 
+const signId = async (id: string) => {
+  const algorithm = "RS256";
+  try {
+    // Must be in PKCS8 format
+    console.log("The key is");
+    console.log(key.value);
+    const privateKey = await jose.importPKCS8(key.value, algorithm);
+
+    const signature = await new jose.CompactSign(new TextEncoder().encode(id))
+      .setProtectedHeader({ alg: algorithm })
+      .sign(privateKey);
+
+    return signature;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
 async function like() {
+  const signature = await signId(props.id);
   if (!isLiked.isLiked) {
     await api.post("/like", {
-      handle: props.name,
-      id: props.id,
+      handle: handle.value,
+      signature: signature,
     });
     likeCount.count++;
     isLiked.isLiked = true;
@@ -52,10 +75,11 @@ async function like() {
 }
 
 async function repost() {
+  const signature = await signId(props.id);
   if (!isReposted.isReposted) {
     await api.post("/repost", {
-      handle: props.name,
-      id: props.id,
+      handle: handle.value,
+      signature: signature,
     });
     repostCount.count++;
     isReposted.isReposted = true;
