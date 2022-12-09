@@ -5,6 +5,7 @@ import type { AxiosInstance } from "axios";
 
 const router = useRouter();
 const api = inject("api") as AxiosInstance;
+const emit = defineEmits(["registered"]);
 
 async function register(handle: string, key: string) {
   const response = await api
@@ -16,6 +17,7 @@ async function register(handle: string, key: string) {
   if (response) {
     console.log("Registered the user and got a response of", response);
     sessionStorage.setItem("handle", handle);
+    emit("registered");
     router.push({ name: "home" });
   }
 }
@@ -26,7 +28,7 @@ const registerError = ref(false);
 </script>
 
 <template>
-  <main class="flex items-center justify-center w-1/3 m-auto">
+  <main class="flex items-center justify-center m-auto">
     <form
       @submit.prevent="register(handle, key)"
       class="flex flex-col gap-6 w-full"
