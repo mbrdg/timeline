@@ -9,10 +9,12 @@ const emit = defineEmits(["registered"]);
 
 async function register(handle: string, key: string) {
   const response = await api
-    .post("/register", { handle, key })
+    .post("/register", { handle, publicKey: key })
     .catch((error) => {
       console.error("Error registering user:", error.message, error.code);
       registerError.value = true;
+      errorMessage.value = error.response.data.message;
+      console.log("error", error.response.data.message);
     });
   if (response) {
     console.log("Registered the user and got a response of", response);
@@ -25,6 +27,7 @@ async function register(handle: string, key: string) {
 const handle = ref("");
 const key = ref("");
 const registerError = ref(false);
+const errorMessage = ref("");
 </script>
 
 <template>
@@ -72,7 +75,7 @@ const registerError = ref(false);
         </div>
       </div>
       <p v-if="registerError" class="text-red-500">
-        There was an error registering the profile. Please try again
+        {{ errorMessage }}
       </p>
       <button
         class="self-start bg-light rounded-xl text-superdark text-lg mt-5 py-3 px-1 w-1/5"
@@ -80,12 +83,6 @@ const registerError = ref(false);
       >
         Register
       </button>
-      <!--<p>
-        Already have an account?
-        <RouterLink to="/login" class="underline text-accent"
-          >Login now!</RouterLink
-        >
-      </p>-->
     </form>
   </main>
 </template>
