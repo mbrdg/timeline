@@ -45,14 +45,14 @@ function timeDifference(current: number, previous: number) {
 }
 
 const signId = async (id: string) => {
-  const algorithm = "RS256";
+  const algorithm = "RS512";
   try {
     // Must be in PKCS8 format
-    console.log("The key is");
-    console.log(key.value);
     const privateKey = await jose.importPKCS8(key.value, algorithm);
 
-    const signature = await new jose.CompactSign(new TextEncoder().encode(id))
+    const signature = await new jose.CompactSign(
+      new TextEncoder().encode(JSON.stringify({ id: id }))
+    )
       .setProtectedHeader({ alg: algorithm })
       .sign(privateKey);
 
@@ -65,10 +65,14 @@ const signId = async (id: string) => {
 async function like() {
   const signature = await signId(props.id);
   if (!isLiked.isLiked) {
-    await api.post("/like", {
-      handle: handle.value,
-      signature: signature,
-    });
+    await api
+      .post("/like", {
+        handle: handle.value,
+        signature: signature,
+      })
+      .then((response) => {
+        console.log("Received a response of", response);
+      });
     likeCount.count++;
     isLiked.isLiked = true;
   }
