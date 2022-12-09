@@ -60,7 +60,7 @@ async function publish(postContent: string) {
   const response = await api
     .post("/publish", {
       handle: props.handle,
-      content: signature,
+      signature: signature,
     })
     .catch((error) => {
       console.error("Error publishing post:", error.message, error.code);
