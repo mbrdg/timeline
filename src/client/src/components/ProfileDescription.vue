@@ -5,7 +5,7 @@ export interface ProfileDescription {
   following: string[];
 }
 
-const props = defineProps<ProfileDescription>();
+defineProps<ProfileDescription>();
 </script>
 
 <template>
@@ -14,7 +14,7 @@ const props = defineProps<ProfileDescription>();
       <RouterLink to="/home">
         <img src="../assets/aleph.svg" class="w-16" />
       </RouterLink>
-      <h1 class="font-bold text-5xl">@{{ name }}</h1>
+      <h1 class="font-bold text-5xl text-accent">{{ name }}</h1>
     </span>
     <div class="flex gap-7 text-xl">
       <span class="flex gap-2">

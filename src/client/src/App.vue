@@ -2,7 +2,7 @@
 import { RouterView, useRoute } from "vue-router";
 import TheSidebar from "./components/TheSidebar.vue";
 import axios from "axios";
-import { ref, provide, onBeforeMount, computed } from "vue";
+import { ref, provide, computed } from "vue";
 
 const BASE_URL = "http://localhost:38119";
 const api = axios.create({
