@@ -32,7 +32,7 @@ onBeforeMount(() => {
     <aside class="w-1/3"></aside>
     <main class="w-1/3 m-auto h-full flex flex-col items-center pt-10 gap-10">
       <section class="flex gap-6 items-center">
-        <img src="../assets/alef.svg" />
+        <img src="../assets/aleph.svg" />
         <h1 class="text-5xl text-accent font-bold">Homepage</h1>
       </section>
       <PostCreationCard

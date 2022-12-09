@@ -10,7 +10,12 @@ const props = defineProps<ProfileDescription>();
 
 <template>
   <section class="pt-20 flex flex-col gap-10">
-    <h1 class="font-bold text-5xl">@{{ name }}</h1>
+    <span class="flex items-center gap-10">
+      <RouterLink to="/home">
+        <img src="../assets/aleph.svg" class="w-16" />
+      </RouterLink>
+      <h1 class="font-bold text-5xl">@{{ name }}</h1>
+    </span>
     <div class="flex gap-7 text-xl">
       <span class="flex gap-2">
         <p>{{ followers.length }}</p>
