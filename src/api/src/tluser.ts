@@ -7,6 +7,7 @@ export type TLUserHandle = string;
 
 export interface TLUser {
     readonly handle: TLUserHandle;
+    readonly publicKey: string;
     followers: TLUserHandle[];
     following: TLUserHandle[];
     timeline: TLInteractionMetadata[];
