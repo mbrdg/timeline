@@ -48,12 +48,16 @@ const alg2 = 'RS256'
 const publicKey = await importSPKI(spki, alg2);
 console.log(publicKey);
 
-const postContent = {
-    content: ":rocket:",
-    topics: ["niceRockets"]
+// const postContent = {
+//     content: ":rocket:",
+//     topics: ["niceRockets"]
+// };
+
+const repostContent = {
+    id: "baejbeidsxtncyftlb6u27yn54zzqbl3g7xkmhw6l6lhdfzcozulo6gllsm"
 };
 const signature = await new CompactSign(
-  new TextEncoder().encode(JSON.stringify(postContent))
+  new TextEncoder().encode(JSON.stringify(repostContent))
 )
     .setProtectedHeader({ alg: alg2 })
     .sign(privateKey);
