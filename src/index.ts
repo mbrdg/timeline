@@ -456,33 +456,41 @@ const main = async () => {
     });
 
     app.post('/unfollow', (req, res) => {
-        const { from, to } = req.body as TLConnection;
+        const { from, signature } = req.body as Pick<TLConnection, "from"> & { signature: string };
 
-        const toCID = createCID({ handle: to });
         const fromCID = createCID({ handle: from });
 
-        const unfollowed = node.contentRouting.get(toCID.bytes)
-            .then(value => JSON.parse(decoder.decode(value)) as TLUser)
-            .then(user => {
+        interface TLUserCID { handle: TLUserHandle, cid: CID }
+        type TLValidatorUnfollow = { from: TLUser } & { to: TLUserCID };
+        const validator = (user: TLUser) =>
+            importSPKI(user.publicKey, authAlgorithm)
+                .then(publicKey => compactVerify(signature, publicKey))
+                .then(res => JSON.parse(decoder.decode(res.payload)) as Pick<TLConnection, "to">)
+                .then(userTo => ({ handle: userTo.to, cid: createCID({ handle: userTo.to }) }) as TLUserCID)
+                .then(userTo => ({ from: user, to: userTo }) as TLValidatorUnfollow)
+                .catch(() => { throw new Error("Signature and public key mismatch"); });
+
+        const unfollowed = (to: TLUserCID) => node.contentRouting.get(to.cid.bytes)
+            .then(value => update<TLUser>(value, user => {
                 user.followers = user.followers.filter(u => u !== from);
                 return user;
-            })
-            .then(value => encoder.encode(JSON.stringify(value)))
-            .then(value => node.contentRouting.put(toCID.bytes, value))
+            }))
+            .then(value => node.contentRouting.put(to.cid.bytes, value))
             .catch(console.error);
 
-        const unfollower = node.contentRouting.get(fromCID.bytes)
+        const unfollower = (props: TLValidatorUnfollow) => {
+            props.from.following = props.from.following.filter(u => u !== props.to.handle);
+            const value = encoder.encode(JSON.stringify(props.from));
+            return node.contentRouting.put(fromCID.bytes, value);
+        };
+
+        node.contentRouting.get(fromCID.bytes)
             .then(value => JSON.parse(decoder.decode(value)) as TLUser)
-            .then(user => {
-                user.following = user.following.filter(u => u !== to);
-                return user;
-            })
-            .then(value => encoder.encode(JSON.stringify(value)))
-            .then(value => node.contentRouting.put(fromCID.bytes, value))
-            .catch(console.error);
-
-        Promise.all([unfollowed, unfollower])
-            .then(() => res.status(200).send({ message: `${from} no longer follows ${to}`}))
+            .then(validator)
+            .then(props => Promise.all([unfollowed(props.to), unfollower(props)])
+                    .then(() => res.status(200).send({ message: `${props.from.handle} no longer follows ${props.to.handle}` }))
+                    .catch((err: Error) => { throw err; })
+            )
             .catch((err: Error) => res.status(400).send({ message: err.message }));
     });
 
