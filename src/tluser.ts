@@ -2,13 +2,12 @@
 // T4G14
 
 import { TLInteractionMetadata } from "./tlpost.js";
-import { KeyLike } from "jose";
 
 export type TLUserHandle = string;
 
 export interface TLUser {
     readonly handle: TLUserHandle;
-    readonly publicKey: KeyLike;
+    readonly publicKey: string;
     followers: TLUserHandle[];
     following: TLUserHandle[];
     timeline: TLInteractionMetadata[];
