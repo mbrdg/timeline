@@ -53,11 +53,15 @@ console.log(publicKey);
 //     topics: ["niceRockets"]
 // };
 
-const repostContent = {
-    id: "baejbeidsxtncyftlb6u27yn54zzqbl3g7xkmhw6l6lhdfzcozulo6gllsm"
-};
+// const repostContent = {
+//     id: "baejbeibixq2tgdenaqmyjwqrc4d4w3u3gcxrr4ocp4ezcebh3t7x7ldnxi"
+// };
+
+const followContent = {
+    to: "@tigas2"
+}
 const signature = await new CompactSign(
-  new TextEncoder().encode(JSON.stringify(repostContent))
+  new TextEncoder().encode(JSON.stringify(followContent))
 )
     .setProtectedHeader({ alg: alg2 })
     .sign(privateKey);

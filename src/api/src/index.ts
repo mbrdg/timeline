@@ -11,13 +11,15 @@ import { noise } from "@chainsafe/libp2p-noise";
 import { mdns } from "@libp2p/mdns";
 import { mplex } from "@libp2p/mplex";
 import { kadDHT } from "@libp2p/kad-dht";
-
 import type { PeerInfo } from "@libp2p/interface-peer-info";
 import type { Connection } from "@libp2p/interface-connection";
 
 import { CID } from "multiformats/cid";
 import { sha256 } from "multiformats/hashes/sha2";
 
+import { importSPKI, compactVerify } from "jose";
+
+import cli from "./tlcli.js";
 import {
   TLPost,
   TLPostId,
@@ -30,20 +32,12 @@ import {
 import { TLUser, TLUserHandle } from "./tluser.js";
 import { TLConnection } from "./social/tlconnection.js";
 
-import { importSPKI, compactVerify } from "jose";
-
 const main = async () => {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder("utf-8");
-  const authAlgorithm = "RS256";
+  const algorithm = "ES256";
 
-  const update = <T>(value: Uint8Array, callback: (obj: T) => T) => {
-    let obj = JSON.parse(decoder.decode(value)) as T;
-    obj = callback(obj);
-    return encoder.encode(JSON.stringify(obj));
-  };
-
-  const [hostname, port] = ["localhost", 0];
+  const [hostname, port] = ["localhost", cli.port];
   const app = express();
 
   // CORS for all origins, what a beautiful flaw
@@ -56,6 +50,23 @@ const main = async () => {
       ReturnType<typeof sha256.digest>
     >;
     return CID.createV1(sha256.code, hash);
+  };
+
+  const update = <T>(value: Uint8Array, operation: (v: T) => T) => {
+    let v = JSON.parse(decoder.decode(value)) as T;
+    v = operation(v);
+    return encoder.encode(JSON.stringify(v));
+  };
+
+  const store = (k: CID, v: Uint8Array, errorMessage: string, p?: CID) => {
+    node.contentRouting
+      .put(k.bytes, v)
+      .then(() =>
+        p ? node.contentRouting.provide(p) : node.contentRouting.provide(k)
+      )
+      .catch(() => {
+        throw new Error(errorMessage);
+      });
   };
 
   const node = await createLibp2p({
@@ -112,16 +123,9 @@ const main = async () => {
     console.log(`🐦 Received registration request: ${handle}`);
 
     const key = createCID({ handle: handle });
-    const register = () =>
-      node.contentRouting
-        .put(key.bytes, value)
-        .then(() => node.contentRouting.provide(key))
-        .catch(() => {
-          throw new Error(`Unable to register ${handle}`);
-        });
 
     const validate = () =>
-      importSPKI(publicKey, authAlgorithm).catch(() => {
+      importSPKI(publicKey, algorithm).catch(() => {
         throw new Error(`The public keys must be in SPKI format`);
       });
 
@@ -130,7 +134,7 @@ const main = async () => {
       .then(() => res.status(303).send({ message: `${handle} already exists` }))
       .catch(() =>
         validate()
-          .then(register)
+          .then(() => store(key, value, `Unable to register ${handle}`))
           .then(() =>
             res.status(201).send({ message: `${handle} is now registered` })
           )
@@ -233,7 +237,8 @@ const main = async () => {
           const cid = CID.parse(post);
           return (async () => {
             const value = await node.contentRouting.get(cid.bytes);
-            return JSON.parse(decoder.decode(value)) as TLPost;
+            const postObj = JSON.parse(decoder.decode(value)) as TLPost;
+            return { ...postObj, id: post } as TLPost & { id: TLPostId };
           })();
         })
       );
@@ -256,11 +261,14 @@ const main = async () => {
     };
     const timestamp = new Date();
 
+    const userCID = createCID({ handle: handle });
+    const postCID = createCID({ handle: handle, timestamp: timestamp });
+
     type TLValidationResult = { user: TLUser } & {
       post: Pick<TLPost, "content" | "topics">;
     };
     const validator = (user: TLUser) =>
-      importSPKI(user.publicKey, authAlgorithm)
+      importSPKI(user.publicKey, algorithm)
         .then((publicKey) => compactVerify(signature, publicKey))
         .then(
           (res) =>
@@ -271,13 +279,12 @@ const main = async () => {
         )
         .then((post) => ({ user, post } as TLValidationResult))
         .catch(() => {
-          throw new Error("Signature and public key mismatch");
+          throw new Error(`Signature and Public Key mismatch`);
         });
 
     const createPost = (props: TLValidationResult) => {
-      if (props.post.content.length === 0) {
-        throw new Error("A post can not have an empty content");
-      }
+      if (props.post.content.length === 0)
+        throw new Error(`Who the f*ck posts an empty post?!`);
 
       const post: Readonly<TLPost> = {
         handle: handle,
@@ -289,7 +296,7 @@ const main = async () => {
       };
 
       const value = encoder.encode(JSON.stringify(post));
-      store(postCID, value);
+      store(postCID, value, `Unable to store the given post`);
       return props;
     };
 
@@ -302,21 +309,15 @@ const main = async () => {
       };
       props.user.timeline.push(interaction);
       const value = encoder.encode(JSON.stringify(props.user));
-      store(userCID, value);
+      store(
+        userCID,
+        value,
+        `Uable to publish the post in the timeline of ${handle}`
+      );
       return props;
     };
 
     console.info(`🐦 Received publishing request from ${handle}`);
-
-    const userCID = createCID({ handle: handle });
-    const postCID = createCID({ handle: handle, timestamp: timestamp });
-
-    const store = (k: CID, v: Uint8Array) => {
-      node.contentRouting
-        .put(k.bytes, v)
-        .then(() => node.contentRouting.provide(k))
-        .catch(console.error);
-    };
 
     const createTopic = (topic: TLPostTopic) => {
       const topicInfo: Readonly<TLTopic> = {
@@ -340,7 +341,13 @@ const main = async () => {
               })
             )
             .catch(() => createTopic(topic))
-            .then((value) => store(topicCID, value));
+            .then((value) =>
+              store(
+                topicCID,
+                value,
+                `Unable to add the post to the timeline of ${topic}`
+              )
+            );
         })
       );
     };
@@ -366,7 +373,7 @@ const main = async () => {
 
     type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
     const validator = (user: TLUser) =>
-      importSPKI(user.publicKey, authAlgorithm)
+      importSPKI(user.publicKey, algorithm)
         .then((publicKey) => compactVerify(signature, publicKey))
         .then(
           (res) =>
@@ -374,15 +381,8 @@ const main = async () => {
         )
         .then((post) => ({ user, post: post.id } as TLValidatorInteraction))
         .catch(() => {
-          throw new Error("Signature and public key mismatch");
+          throw new Error(`Signature and Public Key mismatch`);
         });
-
-    const store = (k: CID, v: Uint8Array) => {
-      node.contentRouting
-        .put(k.bytes, v)
-        .then(() => node.contentRouting.provide(k))
-        .catch(console.error);
-    };
 
     const updatePost = (id: TLPostId) => {
       const postCID = CID.parse(id);
@@ -397,7 +397,13 @@ const main = async () => {
             return post;
           })
         )
-        .then((value) => store(postCID, value))
+        .then((value) =>
+          store(
+            postCID,
+            value,
+            `Unable to update the post with the repost information`
+          )
+        )
         .catch((err) => {
           throw err;
         });
@@ -412,7 +418,11 @@ const main = async () => {
       };
       props.user.timeline.push(interaction);
       const value = encoder.encode(JSON.stringify(props.user));
-      store(userCID, value);
+      store(
+        userCID,
+        value,
+        `Unable to respost ${props.post} to the timeline of ${handle}`
+      );
     };
 
     node.contentRouting
@@ -439,7 +449,7 @@ const main = async () => {
 
     type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
     const validator = (user: TLUser) =>
-      importSPKI(user.publicKey, authAlgorithm)
+      importSPKI(user.publicKey, algorithm)
         .then((publicKey) => compactVerify(signature, publicKey))
         .then(
           (res) =>
@@ -447,15 +457,8 @@ const main = async () => {
         )
         .then((post) => ({ user, post: post.id } as TLValidatorInteraction))
         .catch(() => {
-          throw new Error("Signature and public key mismatch");
+          throw new Error(`Signature and Public Key mismatch`);
         });
-
-    const store = (k: CID, v: Uint8Array) => {
-      node.contentRouting
-        .put(k.bytes, v)
-        .then(() => node.contentRouting.provide(k))
-        .catch(console.error);
-    };
 
     const updatePost = (id: TLPostId) => {
       const postCID = CID.parse(id);
@@ -464,13 +467,19 @@ const main = async () => {
         .then((value) =>
           update<TLPost>(value, (post) => {
             if (post.likes.includes(handle))
-              throw new Error(`${handle} has already reposted ${id}`);
+              throw new Error(`${handle} has already liked ${id}`);
 
             post.likes.push(handle);
             return post;
           })
         )
-        .then((value) => store(postCID, value))
+        .then((value) =>
+          store(
+            postCID,
+            value,
+            `Unable to update the post with the like information`
+          )
+        )
         .catch(console.error);
     };
 
@@ -483,7 +492,11 @@ const main = async () => {
       };
       props.user.timeline.push(interaction);
       const value = encoder.encode(JSON.stringify(props.user));
-      store(userCID, value);
+      store(
+        userCID,
+        value,
+        `Unable to add the like of ${props.post} to the timeline of ${handle}`
+      );
     };
 
     node.contentRouting
@@ -507,20 +520,13 @@ const main = async () => {
 
     const fromCID = createCID({ handle: from });
 
-    const store = (k: CID, v: Uint8Array, p: CID) => {
-      node.contentRouting
-        .put(k.bytes, v)
-        .then(() => node.contentRouting.provide(p))
-        .catch(console.error);
-    };
-
     interface TLUserCID {
       handle: TLUserHandle;
       cid: CID;
     }
     type TLValidatorFollow = { from: TLUser } & { to: TLUserCID };
     const validator = (user: TLUser) =>
-      importSPKI(user.publicKey, authAlgorithm)
+      importSPKI(user.publicKey, algorithm)
         .then((publicKey) => compactVerify(signature, publicKey))
         .then(
           (res) =>
@@ -535,7 +541,7 @@ const main = async () => {
         )
         .then((userTo) => ({ from: user, to: userTo } as TLValidatorFollow))
         .catch(() => {
-          throw new Error("Signature and public key mismatch");
+          throw new Error(`Signature and Public Key mismatch`);
         });
 
     const followed = (to: TLUserCID) =>
@@ -559,7 +565,12 @@ const main = async () => {
 
       props.from.following.push(props.to.handle);
       const value = encoder.encode(JSON.stringify(props.from));
-      store(fromCID, value, props.to.cid);
+      store(
+        fromCID,
+        value,
+        `Unable to connect ${from} to ${props.to.handle}`,
+        props.to.cid
+      );
     };
 
     node.contentRouting
@@ -569,11 +580,9 @@ const main = async () => {
       .then((props) =>
         Promise.all([followed(props.to), follower(props)])
           .then(() =>
-            res
-              .status(200)
-              .send({
-                message: `${props.from.handle} now follows ${props.to.handle}`,
-              })
+            res.status(200).send({
+              message: `${props.from.handle} now follows ${props.to.handle}`,
+            })
           )
           .catch((err: Error) => {
             throw err;
@@ -583,36 +592,240 @@ const main = async () => {
   });
 
   app.post("/unfollow", (req, res) => {
-    const { from, to } = req.body as TLConnection;
+    const { from, signature } = req.body as Pick<TLConnection, "from"> & {
+      signature: string;
+    };
 
-    const toCID = createCID({ handle: to });
     const fromCID = createCID({ handle: from });
 
-    const unfollowed = node.contentRouting
-      .get(toCID.bytes)
-      .then((value) => JSON.parse(decoder.decode(value)) as TLUser)
-      .then((user) => {
-        user.followers = user.followers.filter((u) => u !== from);
-        return user;
-      })
-      .then((value) => encoder.encode(JSON.stringify(value)))
-      .then((value) => node.contentRouting.put(toCID.bytes, value))
-      .catch(console.error);
+    interface TLUserCID {
+      handle: TLUserHandle;
+      cid: CID;
+    }
+    type TLValidatorUnfollow = { from: TLUser } & { to: TLUserCID };
+    const validator = (user: TLUser) =>
+      importSPKI(user.publicKey, algorithm)
+        .then((publicKey) => compactVerify(signature, publicKey))
+        .then(
+          (res) =>
+            JSON.parse(decoder.decode(res.payload)) as Pick<TLConnection, "to">
+        )
+        .then(
+          (userTo) =>
+            ({
+              handle: userTo.to,
+              cid: createCID({ handle: userTo.to }),
+            } as TLUserCID)
+        )
+        .then((userTo) => ({ from: user, to: userTo } as TLValidatorUnfollow))
+        .catch(() => {
+          throw new Error(`Signature and Public Key mismatch`);
+        });
 
-    const unfollower = node.contentRouting
+    const unfollowed = (to: TLUserCID) =>
+      node.contentRouting
+        .get(to.cid.bytes)
+        .then((value) =>
+          update<TLUser>(value, (user) => {
+            if (!user.followers.includes(from)) {
+              throw new Error(`${from} does not follow ${user.handle}`);
+            }
+
+            user.followers = user.followers.filter((u) => u !== from);
+            return user;
+          })
+        )
+        .then((value) => node.contentRouting.put(to.cid.bytes, value))
+        .catch((err: Error) => {
+          throw err;
+        });
+
+    const unfollower = (props: TLValidatorUnfollow) => {
+      if (!props.from.following.includes(props.to.handle)) {
+        throw new Error(
+          `${props.from.handle} does not follow ${props.to.handle}`
+        );
+      }
+
+      props.from.following = props.from.following.filter(
+        (u) => u !== props.to.handle
+      );
+      const value = encoder.encode(JSON.stringify(props.from));
+      return node.contentRouting.put(fromCID.bytes, value);
+    };
+
+    node.contentRouting
       .get(fromCID.bytes)
       .then((value) => JSON.parse(decoder.decode(value)) as TLUser)
-      .then((user) => {
-        user.following = user.following.filter((u) => u !== to);
-        return user;
-      })
-      .then((value) => encoder.encode(JSON.stringify(value)))
-      .then((value) => node.contentRouting.put(fromCID.bytes, value))
-      .catch(console.error);
+      .then(validator)
+      .then((props) =>
+        Promise.all([unfollowed(props.to), unfollower(props)])
+          .then(() =>
+            res.status(200).send({
+              message: `${props.from.handle} no longer follows ${props.to.handle}`,
+            })
+          )
+          .catch((err: Error) => {
+            throw err;
+          })
+      )
+      .catch((err: Error) => res.status(400).send({ message: err.message }));
+  });
 
-    Promise.all([unfollowed, unfollower])
-      .then(() =>
-        res.status(200).send({ message: `${from} no longer follows ${to}` })
+  app.post("/remove/like", (req, res) => {
+    const { handle, signature } = req.body as { handle: TLUserHandle } & {
+      signature: string;
+    };
+    console.info(`🐦 Received like removal request from ${handle}`);
+
+    const userCID = createCID({ handle: handle });
+
+    type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
+    const validator = (user: TLUser) =>
+      importSPKI(user.publicKey, algorithm)
+        .then((publicKey) => compactVerify(signature, publicKey))
+        .then(
+          (res) =>
+            JSON.parse(decoder.decode(res.payload)) as Pick<TLInteraction, "id">
+        )
+        .then((post) => ({ user, post: post.id } as TLValidatorInteraction))
+        .catch(() => {
+          throw new Error(`Signature and Public Key mismatch`);
+        });
+
+    const updatePost = (props: TLValidatorInteraction) => {
+      const postCID = CID.parse(props.post);
+      return node.contentRouting
+        .get(postCID.bytes)
+        .then((value) =>
+          update<TLPost>(value, (post) => {
+            if (!post.likes.includes(handle))
+              throw new Error(`${handle} does not like ${props.post}`);
+
+            post.likes = post.likes.filter((u) => u !== handle);
+            return post;
+          })
+        )
+        .then((value) =>
+          store(
+            postCID,
+            value,
+            `Unable to update the post with the like information`
+          )
+        )
+        .then(() => props)
+        .catch((err: Error) => {
+          throw err;
+        });
+    };
+
+    const updateUser = (props: TLValidatorInteraction) => {
+      props.user.timeline = props.user.timeline.filter(
+        (u) =>
+          !(
+            u.who === handle &&
+            u.id == props.post &&
+            u.interaction === TLPostInteraction.LIKE
+          )
+      );
+      const value = encoder.encode(JSON.stringify(props.user));
+      store(
+        userCID,
+        value,
+        `Unable to remove the like of ${props.post} to the timeline of ${handle}`
+      );
+      return props;
+    };
+
+    node.contentRouting
+      .get(userCID.bytes)
+      .then((value) => JSON.parse(decoder.decode(value)) as TLUser)
+      .then(validator)
+      .then(updatePost)
+      .then(updateUser)
+      .then((props) =>
+        res
+          .status(200)
+          .send({ message: `${handle} removed like from ${props.post}` })
+      )
+      .catch((err: Error) => res.status(400).send({ message: err.message }));
+  });
+
+  app.post("/remove/repost", (req, res) => {
+    const { handle, signature } = req.body as { handle: TLUserHandle } & {
+      signature: string;
+    };
+    console.info(`🐦 Received repost request from ${handle}\n`);
+
+    const userCID = createCID({ handle: handle });
+
+    type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
+    const validator = (user: TLUser) =>
+      importSPKI(user.publicKey, algorithm)
+        .then((publicKey) => compactVerify(signature, publicKey))
+        .then(
+          (res) =>
+            JSON.parse(decoder.decode(res.payload)) as Pick<TLInteraction, "id">
+        )
+        .then((post) => ({ user, post: post.id } as TLValidatorInteraction))
+        .catch(() => {
+          throw new Error(`Signature and Public Key mismatch`);
+        });
+
+    const updatePost = (props: TLValidatorInteraction) => {
+      const postCID = CID.parse(props.post);
+      return node.contentRouting
+        .get(postCID.bytes)
+        .then((value) =>
+          update<TLPost>(value, (post) => {
+            if (!post.reposts.includes(handle))
+              throw new Error(`${handle} has not reposted ${props.post}`);
+
+            post.reposts = post.reposts.filter((u) => u !== handle);
+            return post;
+          })
+        )
+        .then((value) =>
+          store(
+            postCID,
+            value,
+            `Unable to update the post with the repost information`
+          )
+        )
+        .then(() => props)
+        .catch((err) => {
+          throw err;
+        });
+    };
+
+    const updateUser = (props: TLValidatorInteraction) => {
+      props.user.timeline = props.user.timeline.filter(
+        (u) =>
+          !(
+            u.who === handle &&
+            u.id === props.post &&
+            u.interaction === TLPostInteraction.REPOST
+          )
+      );
+      const value = encoder.encode(JSON.stringify(props.user));
+      store(
+        userCID,
+        value,
+        `Unable to remove respost of ${props.post} from the timeline of ${handle}`
+      );
+      return props;
+    };
+
+    node.contentRouting
+      .get(userCID.bytes)
+      .then((value) => JSON.parse(decoder.decode(value)) as TLUser)
+      .then(validator)
+      .then(updatePost)
+      .then(updateUser)
+      .then((props) =>
+        res
+          .status(200)
+          .send({ message: `${handle} removed repost from ${props.post}` })
       )
       .catch((err: Error) => res.status(400).send({ message: err.message }));
   });
