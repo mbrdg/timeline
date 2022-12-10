@@ -36,6 +36,7 @@ import { TLConnection } from './social/tlconnection.js';
 const main = async () => {
 
     const encoder = new TextEncoder();
+    const decoder = new TextDecoder('utf-8');
 
     const [hostname, port] = ['localhost', cli.port];
     const app = express();
@@ -48,6 +49,12 @@ const main = async () => {
         const bytes = encoder.encode(JSON.stringify(data));
         const hash = sha256.digest(bytes) as Awaited<ReturnType<typeof sha256.digest>>;
         return CID.createV1(sha256.code, hash);
+    };
+
+    const update = <T>(value: Uint8Array, operation: (v: T) => T) => {
+        let v = JSON.parse(decoder.decode(value)) as T;
+        v = operation(v);
+        return encoder.encode(JSON.stringify(v));
     };
 
     const node = await createLibp2p({
@@ -120,7 +127,7 @@ const main = async () => {
     });
 
     app.get('/timeline/:handle', (req, res) => {
-        const { handle } = req.params as Pick<TLUser, "handle">;
+        const { handle } = req.params as Pick<TLUser, 'handle'>;
         const key = createCID({ handle: handle });
 
         const getUserTimeline = (handle: TLUserHandle) => {
@@ -133,11 +140,11 @@ const main = async () => {
             })();
         };
 
-        type TLTimelineInteraction = (TLPost & Omit<TLInteractionMetadata, "timestamp">);
+        type TLTimelineInteraction = (TLPost & Omit<TLInteractionMetadata, 'timestamp'>);
         const getTimelinePosts = (interactions: TLInteractionMetadata[]) => {
             return Promise.all(interactions.map(post => {
                 const cid = CID.parse(post.id);
-                const metadata = post as Omit<TLInteractionMetadata, "timestamp">;
+                const metadata = post as Omit<TLInteractionMetadata, 'timestamp'>;
 
                 return (async () => {
                     const value = await node.contentRouting.get(cid.bytes);
@@ -148,7 +155,7 @@ const main = async () => {
         };
 
         node.contentRouting.get(key.bytes)
-            .then(value => JSON.parse(decoder.decode(value)) as Pick<TLUser, "timeline" | "following">)
+            .then(value => JSON.parse(decoder.decode(value)) as Pick<TLUser, 'timeline' | 'following'>)
             .then(user =>
                 Promise.all(Array.from(user.following).map(async (handle) => await getUserTimeline(handle)))
                     .then(timelines => [...timelines, user.timeline])
@@ -164,7 +171,7 @@ const main = async () => {
     });
 
     app.get('/:handle', (req, res) => {
-        const { handle } = req.params as Pick<TLUser, "handle">;
+        const { handle } = req.params as Pick<TLUser, 'handle'>;
         const key = createCID({ handle: handle });
 
         node.contentRouting.get(key.bytes)
@@ -184,7 +191,7 @@ const main = async () => {
     });
 
     app.get('/topic/:topic', (req, res) => {
-        const { topic } = req.params as Pick<TLTopic, "topic">;
+        const { topic } = req.params as Pick<TLTopic, 'topic'>;
         const key = createCID({ topic: topic });
 
         const getTopicPosts = async (topic: TLTopic) => {
@@ -208,18 +215,17 @@ const main = async () => {
         const { handle, signature } = req.body as { handle: TLUserHandle } & { signature: string };
         const timestamp = new Date();
 
-        type TLValidationResult = { user: TLUser } & { post: Pick<TLPost, "content" | "topics"> };
+        type TLValidationResult = { user: TLUser } & { post: Pick<TLPost, 'content' | 'topics'> };
         const validator = (user: TLUser) =>
-            importSPKI(user.publicKey, authAlgorithm)
+            importSPKI(user.publicKey, algorithm)
                 .then(publicKey => compactVerify(signature, publicKey))
-                .then(res => JSON.parse(decoder.decode(res.payload)) as Pick<TLPost, "content" | "topics">)
+                .then(res => JSON.parse(decoder.decode(res.payload)) as Pick<TLPost, 'content' | 'topics'>)
                 .then(post => ({ user, post }) as TLValidationResult)
-                .catch(() => { throw new Error("Signature and public key mismatch"); });
+                .catch(() => { throw new Error(`Signature and Public Key mismatch`); });
 
         const createPost = (props: TLValidationResult) => {
-            if (props.post.content.length === 0) {
-                throw new Error("A post can not have an empty content");
-            }
+            if (props.post.content.length === 0)
+                throw new Error(`Who the f*ck posts an empty post?!`);
 
             const post: Readonly<TLPost> = {
                 handle: handle,
@@ -300,11 +306,11 @@ const main = async () => {
 
         type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
         const validator = (user: TLUser) =>
-            importSPKI(user.publicKey, authAlgorithm)
+            importSPKI(user.publicKey, algorithm)
                 .then(publicKey => compactVerify(signature, publicKey))
-                .then(res => JSON.parse(decoder.decode(res.payload)) as Pick<TLInteraction, "id">)
+                .then(res => JSON.parse(decoder.decode(res.payload)) as Pick<TLInteraction, 'id'>)
                 .then(post => ({ user, post: post.id }) as TLValidatorInteraction)
-                .catch(() => { throw new Error("Signature and public key mismatch"); });
+                .catch(() => { throw new Error(`Signature and Public Key mismatch`); });
 
         const store = (k: CID, v: Uint8Array) => {
             node.contentRouting.put(k.bytes, v)
@@ -357,11 +363,11 @@ const main = async () => {
 
         type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
         const validator = (user: TLUser) =>
-            importSPKI(user.publicKey, authAlgorithm)
+            importSPKI(user.publicKey, algorithm)
                 .then(publicKey => compactVerify(signature, publicKey))
-                .then(res => JSON.parse(decoder.decode(res.payload)) as Pick<TLInteraction, "id">)
+                .then(res => JSON.parse(decoder.decode(res.payload)) as Pick<TLInteraction, 'id'>)
                 .then(post => ({ user, post: post.id }) as TLValidatorInteraction)
-                .catch(() => { throw new Error("Signature and public key mismatch"); });
+                .catch(() => { throw new Error(`Signature and Public Key mismatch`); });
 
         const store = (k: CID, v: Uint8Array) => {
             node.contentRouting.put(k.bytes, v)
@@ -406,7 +412,7 @@ const main = async () => {
     });
 
     app.post('/follow', (req, res) => {
-        const { from, signature } = req.body as Pick<TLConnection, "from"> & { signature: string };
+        const { from, signature } = req.body as Pick<TLConnection, 'from'> & { signature: string };
 
         const fromCID = createCID({ handle: from });
 
@@ -419,12 +425,12 @@ const main = async () => {
         interface TLUserCID { handle: TLUserHandle, cid: CID }
         type TLValidatorFollow = { from: TLUser } & { to: TLUserCID };
         const validator = (user: TLUser) =>
-            importSPKI(user.publicKey, authAlgorithm)
+            importSPKI(user.publicKey, algorithm)
                 .then(publicKey => compactVerify(signature, publicKey))
-                .then(res => JSON.parse(decoder.decode(res.payload)) as Pick<TLConnection, "to">)
+                .then(res => JSON.parse(decoder.decode(res.payload)) as Pick<TLConnection, 'to'>)
                 .then(userTo => ({ handle: userTo.to, cid: createCID({ handle: userTo.to }) }) as TLUserCID)
                 .then(userTo => ({ from: user, to: userTo }) as TLValidatorFollow)
-                .catch(() => { throw new Error("Signature and public key mismatch"); });
+                .catch(() => { throw new Error(`Signature and Public Key mismatch`); });
 
         const followed = (to: TLUserCID) => node.contentRouting.get(to.cid.bytes)
             .then(value => update<TLUser>(value, user => {
@@ -457,19 +463,19 @@ const main = async () => {
     });
 
     app.post('/unfollow', (req, res) => {
-        const { from, signature } = req.body as Pick<TLConnection, "from"> & { signature: string };
+        const { from, signature } = req.body as Pick<TLConnection, 'from'> & { signature: string };
 
         const fromCID = createCID({ handle: from });
 
         interface TLUserCID { handle: TLUserHandle, cid: CID }
         type TLValidatorUnfollow = { from: TLUser } & { to: TLUserCID };
         const validator = (user: TLUser) =>
-            importSPKI(user.publicKey, authAlgorithm)
+            importSPKI(user.publicKey, algorithm)
                 .then(publicKey => compactVerify(signature, publicKey))
-                .then(res => JSON.parse(decoder.decode(res.payload)) as Pick<TLConnection, "to">)
+                .then(res => JSON.parse(decoder.decode(res.payload)) as Pick<TLConnection, 'to'>)
                 .then(userTo => ({ handle: userTo.to, cid: createCID({ handle: userTo.to }) }) as TLUserCID)
                 .then(userTo => ({ from: user, to: userTo }) as TLValidatorUnfollow)
-                .catch(() => { throw new Error("Signature and public key mismatch"); });
+                .catch(() => { throw new Error(`Signature and Public Key mismatch`); });
 
         const unfollowed = (to: TLUserCID) => node.contentRouting.get(to.cid.bytes)
             .then(value => update<TLUser>(value, user => {
