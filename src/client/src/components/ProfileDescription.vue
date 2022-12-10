@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AxiosInstance } from "axios";
-import { computed, inject, type Ref } from "vue";
+import { computed, inject, ref, type Ref } from "vue";
+import * as jose from "jose";
 
 export interface ProfileDescription {
   name: string;
@@ -23,8 +24,10 @@ const canInteract = computed(() => {
 });
 
 const canFollow = computed(() => {
-  return !props.followers.includes(handle.value);
+  return !props.followers.includes(handle.value) || justFollowed.value;
 });
+
+const justFollowed = ref(false);
 
 async function unfollowUser() {
   const from = handle.value;
@@ -44,23 +47,43 @@ async function unfollowUser() {
 
   if (response) {
     console.log(`${from} just unfollowed ${to}`);
+    justFollowed.value = true;
   }
 }
 
+const signTo = async (to: string) => {
+  const algorithm = "RS512";
+  try {
+    // Must be in PKCS8 format
+    const privateKey = await jose.importPKCS8(key.value, algorithm);
+
+    const signature = await new jose.CompactSign(
+      new TextEncoder().encode(JSON.stringify({ to: to }))
+    )
+      .setProtectedHeader({ alg: algorithm })
+      .sign(privateKey);
+
+    return signature;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
 async function followUser() {
   const from = handle.value;
-  const to = props.name;
+  const signature = await signTo(props.name);
   const response = await api
     .post("/follow", {
       from,
-      to,
+      signature,
     })
     .catch((error) => {
       console.error("Error sending follow request", error.code, error.message);
     });
 
   if (response) {
-    console.log(`${from} just followed ${to}`);
+    console.log(`${from} just followed ${props.name}`);
+    justFollowed.value = false;
   }
 }
 </script>

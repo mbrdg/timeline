@@ -93,7 +93,7 @@ async function repost() {
 
 <template>
   <div class="mx-2 mt-2" v-if="props.name !== post.handle">
-    <div>{{ props.name }} reposted</div>
+    <div class="text-xl">{{ props.name }} reposted</div>
   </div>
   <div
     class="container flex flex-col bg-lightdark rounded-md p-5 my-2 gap-2 shadow-md"
