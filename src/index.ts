@@ -37,6 +37,7 @@ const main = async () => {
 
     const encoder = new TextEncoder();
     const decoder = new TextDecoder('utf-8');
+    const algorithm = 'ES256';
 
     const [hostname, port] = ['localhost', cli.port];
     const app = express();
@@ -115,7 +116,7 @@ const main = async () => {
                 .catch(() => { throw new Error(`Unable to register ${handle}`); })
 
         const validate = () =>
-            importSPKI(publicKey, authAlgorithm)
+            importSPKI(publicKey, algorithm)
                 .catch(() => { throw new Error(`The public keys must be in SPKI format`); });
 
         node.contentRouting.get(key.bytes)
