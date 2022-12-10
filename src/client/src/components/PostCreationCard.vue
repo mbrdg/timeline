@@ -48,7 +48,8 @@ const extractTopics = (postContent: string) => {
   topics = topics.map((topic) => topic.trim());
 
   for (let i = 0; i < topics.length; i++) {
-    topics[i] = topics[i].replace(/.(?=#)/gi, "");
+    topics[i] = topics[i].replace(/.+?(?=#)/gi, "");
+    topics[i] = topics[i].slice(1);
   }
 
   return topics;
