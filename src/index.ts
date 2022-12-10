@@ -58,6 +58,12 @@ const main = async () => {
         return encoder.encode(JSON.stringify(v));
     };
 
+    const store = (k: CID, v: Uint8Array, errorMessage: string, p?: CID) => {
+        node.contentRouting.put(k.bytes, v)
+            .then(() => p ? node.contentRouting.provide(p) : node.contentRouting.provide(k))
+            .catch(() => { throw new Error(errorMessage)});
+    };
+
     const node = await createLibp2p({
         addresses: {
             listen: ['/ip4/0.0.0.0/tcp/0']
@@ -110,10 +116,6 @@ const main = async () => {
         console.log(`🐦 Received registration request: ${handle}`);
 
         const key = createCID({ handle: handle });
-        const register = () =>
-            node.contentRouting.put(key.bytes, value)
-                .then(() => node.contentRouting.provide(key))
-                .catch(() => { throw new Error(`Unable to register ${handle}`); })
 
         const validate = () =>
             importSPKI(publicKey, algorithm)
@@ -122,7 +124,7 @@ const main = async () => {
         node.contentRouting.get(key.bytes)
             .then(() => res.status(303).send({ message: `${handle} already exists` }))
             .catch(() => validate()
-                .then(register)
+                .then(() => store(key, value, `Unable to register ${handle}`))
                 .then(() => res.status(201).send({ message: `${handle} is now registered` }))
                 .catch((err: Error) => res.status(400).send({ message: err.message })));
     });
@@ -217,6 +219,9 @@ const main = async () => {
         const { handle, signature } = req.body as { handle: TLUserHandle } & { signature: string };
         const timestamp = new Date();
 
+        const userCID = createCID({ handle: handle });
+        const postCID = createCID({ handle: handle, timestamp: timestamp });
+
         type TLValidationResult = { user: TLUser } & { post: Pick<TLPost, 'content' | 'topics'> };
         const validator = (user: TLUser) =>
             importSPKI(user.publicKey, algorithm)
@@ -239,7 +244,7 @@ const main = async () => {
             };
 
             const value = encoder.encode(JSON.stringify(post));
-            store(postCID, value);
+            store(postCID, value, `Unable to store the given post`);
             return props;
         }
 
@@ -252,20 +257,11 @@ const main = async () => {
             };
             props.user.timeline.push(interaction);
             const value = encoder.encode(JSON.stringify(props.user));
-            store(userCID, value);
+            store(userCID, value, `Uable to publish the post in the timeline of ${handle}`);
             return props;
         }
 
         console.info(`🐦 Received publishing request from ${handle}`);
-
-        const userCID = createCID({ handle: handle });
-        const postCID = createCID({ handle: handle, timestamp: timestamp });
-
-        const store = (k: CID, v: Uint8Array) => {
-            node.contentRouting.put(k.bytes, v)
-                .then(() => node.contentRouting.provide(k))
-                .catch(console.error);
-        };
 
         const createTopic = (topic: TLPostTopic) => {
             const topicInfo: Readonly<TLTopic> = {
@@ -286,7 +282,7 @@ const main = async () => {
                             return topic;
                         }))
                     .catch(() => createTopic(topic))
-                    .then(value => store(topicCID, value));
+                    .then(value => store(topicCID, value, `Unable to add the post to the timeline of ${topic}`));
             }));
         };
 
@@ -314,12 +310,6 @@ const main = async () => {
                 .then(post => ({ user, post: post.id }) as TLValidatorInteraction)
                 .catch(() => { throw new Error(`Signature and Public Key mismatch`); });
 
-        const store = (k: CID, v: Uint8Array) => {
-            node.contentRouting.put(k.bytes, v)
-                .then(() => node.contentRouting.provide(k))
-                .catch(console.error);
-        };
-
         const updatePost = (id: TLPostId) => {
             const postCID = CID.parse(id);
             node.contentRouting.get(postCID.bytes)
@@ -330,7 +320,7 @@ const main = async () => {
                     post.reposts.push(handle);
                     return post;
                 }))
-                .then(value => store(postCID, value))
+                .then(value => store(postCID, value, `Unable to update the post with the repost information`))
                 .catch(err => { throw err; });
         };
 
@@ -343,7 +333,7 @@ const main = async () => {
             };
             props.user.timeline.push(interaction);
             const value = encoder.encode(JSON.stringify(props.user));
-            store(userCID, value);
+            store(userCID, value, `Unable to respost ${props.post} to the timeline of ${handle}`);
         };
 
         node.contentRouting.get(userCID.bytes)
@@ -371,23 +361,17 @@ const main = async () => {
                 .then(post => ({ user, post: post.id }) as TLValidatorInteraction)
                 .catch(() => { throw new Error(`Signature and Public Key mismatch`); });
 
-        const store = (k: CID, v: Uint8Array) => {
-            node.contentRouting.put(k.bytes, v)
-                .then(() => node.contentRouting.provide(k))
-                .catch(console.error);
-        };
-
         const updatePost = (id: TLPostId) => {
             const postCID = CID.parse(id);
             node.contentRouting.get(postCID.bytes)
                 .then(value => update<TLPost>(value, post => {
                     if (post.likes.includes(handle))
-                        throw new Error(`${handle} has already reposted ${id}`);
+                        throw new Error(`${handle} has already liked ${id}`);
 
                     post.likes.push(handle);
                     return post;
                 }))
-                .then(value => store(postCID, value))
+                .then(value => store(postCID, value, `Unable to update the post with the like information`))
                 .catch(console.error);
         };
 
@@ -400,7 +384,7 @@ const main = async () => {
             };
             props.user.timeline.push(interaction);
             const value = encoder.encode(JSON.stringify(props.user));
-            store(userCID, value);
+            store(userCID, value, `Unable to add the like of ${props.post} to the timeline of ${handle}`);
         };
 
         node.contentRouting.get(userCID.bytes)
@@ -417,12 +401,6 @@ const main = async () => {
         const { from, signature } = req.body as Pick<TLConnection, 'from'> & { signature: string };
 
         const fromCID = createCID({ handle: from });
-
-        const store = (k: CID, v: Uint8Array, p: CID) => {
-            node.contentRouting.put(k.bytes, v)
-                .then(() => node.contentRouting.provide(p))
-                .catch(console.error);
-        };
 
         interface TLUserCID { handle: TLUserHandle, cid: CID }
         type TLValidatorFollow = { from: TLUser } & { to: TLUserCID };
@@ -451,7 +429,7 @@ const main = async () => {
 
             props.from.following.push(props.to.handle);
             const value = encoder.encode(JSON.stringify(props.from));
-            store(fromCID, value, props.to.cid);
+            store(fromCID, value, `Unable to connect ${from} to ${props.to.handle}`, props.to.cid);
         };
 
         node.contentRouting.get(fromCID.bytes)
@@ -489,7 +467,7 @@ const main = async () => {
                 return user;
             }))
             .then(value => node.contentRouting.put(to.cid.bytes, value))
-            .catch(console.error);
+            .catch((err: Error) => { throw err; });
 
         const unfollower = (props: TLValidatorUnfollow) => {
             if (!props.from.following.includes(props.to.handle)) {
