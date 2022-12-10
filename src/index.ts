@@ -200,7 +200,8 @@ const main = async () => {
                 const cid = CID.parse(post);
                 return (async () => {
                     const value = await node.contentRouting.get(cid.bytes);
-                    return JSON.parse(decoder.decode(value)) as TLPost;
+                    const postObj = JSON.parse(decoder.decode(value)) as TLPost;
+                    return { ...postObj, id: post } as TLPost & { id: TLPostId };
                 })();
             }));
         };
