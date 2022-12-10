@@ -89,6 +89,14 @@ async function repost() {
     isReposted.isReposted = true;
   }
 }
+
+function highlightTopics(text: string) {
+  console.log(text);
+  return text.replace(new RegExp(/(^|\W)#\w+/gi, "gi"), (match) => {
+    console.log(match);
+    return "<a href='#' class='text-accent hover:underline'>" + match + "</a>";
+  });
+}
 </script>
 
 <template>
@@ -108,7 +116,7 @@ async function repost() {
         {{ timeDifference(Date.now(), new Date(post.timestamp).getTime()) }}
       </div>
     </div>
-    <div>{{ post.content }}</div>
+    <div v-html="highlightTopics(post.content)"></div>
     <div class="flex-grow h-px bg-dark mt-2 opacity-70"></div>
     <div class="flex flex-row justify-around">
       <form @submit.prevent="repost" class="flex flex-row gap-1">
