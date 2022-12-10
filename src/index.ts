@@ -11,32 +11,33 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { mdns } from '@libp2p/mdns';
 import { mplex } from '@libp2p/mplex';
 import { kadDHT } from '@libp2p/kad-dht';
-
 import type { PeerInfo } from '@libp2p/interface-peer-info';
 import type { Connection } from '@libp2p/interface-connection';
 
 import { CID } from 'multiformats/cid';
 import { sha256 } from 'multiformats/hashes/sha2';
 
-import { TLPost, TLPostId, TLInteraction, TLInteractionMetadata, TLPostInteraction, TLPostTopic, TLTopic } from './tlpost.js';
+import { importSPKI, compactVerify } from 'jose';
+
+import cli from './tlcli.js';
+import {
+    TLPost,
+    TLPostId,
+    TLInteraction,
+    TLInteractionMetadata,
+    TLPostInteraction,
+    TLPostTopic,
+    TLTopic
+} from './tlpost.js';
 import { TLUser, TLUserHandle } from './tluser.js';
 import { TLConnection } from './social/tlconnection.js';
 
-import { importSPKI, compactVerify } from 'jose';
 
 const main = async () => {
-    
+
     const encoder = new TextEncoder();
-    const decoder = new TextDecoder("utf-8");
-    const authAlgorithm = "RS256";
 
-    const update = <T>(value: Uint8Array, callback: (obj: T) => T) => {
-        let obj = JSON.parse(decoder.decode(value)) as T;
-        obj = callback(obj);
-        return encoder.encode(JSON.stringify(obj));
-    };
-
-    const [hostname, port] = ['localhost', 0];
+    const [hostname, port] = ['localhost', cli.port];
     const app = express();
 
     // CORS for all origins, what a beautiful flaw
@@ -426,7 +427,7 @@ const main = async () => {
                 .catch(() => { throw new Error("Signature and public key mismatch"); });
 
         const followed = (to: TLUserCID) => node.contentRouting.get(to.cid.bytes)
-            .then(value => update<TLUser>(value, user => { 
+            .then(value => update<TLUser>(value, user => {
                 if (user.followers.includes(from))
                     throw new Error(`${from} already follows ${to.handle}`);
 
@@ -444,7 +445,7 @@ const main = async () => {
             const value = encoder.encode(JSON.stringify(props.from));
             store(fromCID, value, props.to.cid);
         };
-        
+
         node.contentRouting.get(fromCID.bytes)
             .then(value => JSON.parse(decoder.decode(value)) as TLUser)
             .then(validator)
