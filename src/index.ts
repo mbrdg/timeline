@@ -489,6 +489,96 @@ const main = async () => {
             .catch((err: Error) => res.status(400).send({ message: err.message }));
     });
 
+    app.post('/remove/like', (req, res) => {
+        const { handle, signature } = req.body as { handle: TLUserHandle } & { signature: string };
+        console.info(`🐦 Received like removal request from ${handle}`);
+
+        const userCID = createCID({ handle: handle });
+
+        type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
+        const validator = (user: TLUser) =>
+            importSPKI(user.publicKey, algorithm)
+                .then(publicKey => compactVerify(signature, publicKey))
+                .then(res => JSON.parse(decoder.decode(res.payload)) as Pick<TLInteraction, 'id'>)
+                .then(post => ({ user, post: post.id }) as TLValidatorInteraction)
+                .catch(() => { throw new Error(`Signature and Public Key mismatch`); });
+        
+        const updatePost = (props: TLValidatorInteraction) => {
+            const postCID = CID.parse(props.post);
+            return node.contentRouting.get(postCID.bytes)
+                .then(value => update<TLPost>(value, post => {
+                    if (!post.likes.includes(handle))
+                        throw new Error(`${handle} does not like ${props.post}`);
+
+                    post.likes = post.likes.filter(u => u !== handle);
+                    return post;
+                }))
+                .then(value => store(postCID, value, `Unable to update the post with the like information`))
+                .then(() => props)
+                .catch((err: Error) => { throw err; });
+        };
+
+        const updateUser = (props: TLValidatorInteraction) => {
+            props.user.timeline = props.user.timeline.filter(u => !(u.who === handle && u.id == props.post && u.interaction === TLPostInteraction.LIKE));
+            const value = encoder.encode(JSON.stringify(props.user));
+            store(userCID, value, `Unable to remove the like of ${props.post} to the timeline of ${handle}`);
+            return props;
+        };
+
+        node.contentRouting.get(userCID.bytes)
+            .then(value => JSON.parse(decoder.decode(value)) as TLUser)
+            .then(validator)
+            .then(updatePost)
+            .then(updateUser)
+            .then(props => res.status(200).send({ message: `${handle} removed like from ${props.post}` }))
+            .catch((err: Error) => res.status(400).send({ message: err.message }));
+    });
+
+    app.post('/remove/repost', (req, res) => {
+        const { handle, signature } = req.body as { handle: TLUserHandle } & { signature: string };
+        console.info(`🐦 Received repost request from ${handle}\n`);
+
+        const userCID = createCID({ handle: handle });
+
+        type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
+        const validator = (user: TLUser) =>
+            importSPKI(user.publicKey, algorithm)
+                .then(publicKey => compactVerify(signature, publicKey))
+                .then(res => JSON.parse(decoder.decode(res.payload)) as Pick<TLInteraction, 'id'>)
+                .then(post => ({ user, post: post.id }) as TLValidatorInteraction)
+                .catch(() => { throw new Error(`Signature and Public Key mismatch`); });
+
+        const updatePost = (props: TLValidatorInteraction) => {
+            const postCID = CID.parse(props.post);
+            return node.contentRouting.get(postCID.bytes)
+                .then(value => update<TLPost>(value, post => {
+                    if (!post.reposts.includes(handle))
+                        throw new Error(`${handle} has not reposted ${props.post}`);
+
+                    post.reposts = post.reposts.filter(u => u !== handle);
+                    return post;
+                }))
+                .then(value => store(postCID, value, `Unable to update the post with the repost information`))
+                .then(() => props)
+                .catch(err => { throw err; });
+        };
+
+        const updateUser = (props: TLValidatorInteraction) => {
+            props.user.timeline = props.user.timeline.filter(u => !(u.who === handle && u.id === props.post && u.interaction === TLPostInteraction.REPOST))
+            const value = encoder.encode(JSON.stringify(props.user));
+            store(userCID, value, `Unable to remove respost of ${props.post} from the timeline of ${handle}`);
+            return props;
+        };
+
+        node.contentRouting.get(userCID.bytes)
+            .then(value => JSON.parse(decoder.decode(value)) as TLUser)
+            .then(validator)
+            .then(updatePost)
+            .then(updateUser)
+            .then(props => res.status(200).send({ message: `${handle} removed repost from ${props.post}` }))
+            .catch((err: Error) => res.status(400).send({ message: err.message })); 
+    });
+
     const httpServer = app.listen(port, hostname, () => {
         const address = httpServer.address() as AddressInfo;
         console.info(`🐦 Server running at http://${hostname}:${address.port}`);
