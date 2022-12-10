@@ -11,5 +11,5 @@
       "path": "./tsconfig.vitest.json"
     }
   ],
-  "composite": true,
+  "composite": true
 }
