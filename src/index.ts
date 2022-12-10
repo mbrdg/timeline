@@ -481,6 +481,10 @@ const main = async () => {
 
         const unfollowed = (to: TLUserCID) => node.contentRouting.get(to.cid.bytes)
             .then(value => update<TLUser>(value, user => {
+                if (!user.followers.includes(from)) {
+                    throw new Error(`${from} does not follow ${user.handle}`)
+                }
+
                 user.followers = user.followers.filter(u => u !== from);
                 return user;
             }))
@@ -488,6 +492,10 @@ const main = async () => {
             .catch(console.error);
 
         const unfollower = (props: TLValidatorUnfollow) => {
+            if (!props.from.following.includes(props.to.handle)) {
+                throw new Error(`${props.from.handle} does not follow ${props.to.handle}`)
+            }
+
             props.from.following = props.from.following.filter(u => u !== props.to.handle);
             const value = encoder.encode(JSON.stringify(props.from));
             return node.contentRouting.put(fromCID.bytes, value);
