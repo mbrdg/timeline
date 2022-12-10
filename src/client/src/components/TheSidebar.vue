@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AxiosInstance, AxiosResponse } from "axios";
+import type { AxiosInstance } from "axios";
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
 
@@ -43,8 +43,26 @@ defineEmits(["update:handle", "update:privateKey"]);
 
 <template>
   <aside class="flex flex-col pt-36 pl-10">
-    <div class="text-2xl text-accent">These are your informations:</div>
+    <div class="text-2xl py-5 text-accent">Search for anything here:</div>
+    <form @submit.prevent="search(page)">
+      <input
+        v-model="page"
+        type="text"
+        class="bg-superdark border-[1.5px] px-3 py-3 rounded-2xl w-4/5 outline-none placeholder:text-xl text-xl"
+        placeholder="What page do you want to go to?"
+      />
+    </form>
+    <div class="flex gap-2 text-xl mt-5">
+      <p>Go to your</p>
+      <RouterLink class="text-accent" :to="`/${handle}`"
+        >profile page</RouterLink
+      >
+    </div>
+    <p v-if="notFound" class="text-red-500">
+      No user or topic matches your search. Please try again.
+    </p>
 
+    <div class="text-2xl text-accent pt-16">These are your informations:</div>
     <label class="text-xl my-5">Your handle:</label>
     <input
       :value="handle"
@@ -63,26 +81,6 @@ defineEmits(["update:handle", "update:privateKey"]);
     />
     <p v-if="keyInvalid" class="text-red-500">
       The specified private key is not valid. Please try again.
-    </p>
-    <div class="flex gap-2 text-xl mt-5">
-      <p>Go to your</p>
-      <RouterLink class="text-accent" :to="`/${handle}`"
-        >profile page</RouterLink
-      >
-    </div>
-    <div class="flex gap-2 text-xl my-5">
-      <p>Or search for another page here:</p>
-    </div>
-    <form @submit.prevent="search(page)">
-      <input
-        v-model="page"
-        type="text"
-        class="bg-superdark border-[1.5px] px-3 py-3 rounded-2xl w-4/5 outline-none placeholder:text-xl text-xl"
-        placeholder="What page do you want to go to?"
-      />
-    </form>
-    <p v-if="notFound" class="text-red-500">
-      No user or topic matches your search. Please try again.
     </p>
     <div class="flex gap-2 text-xl mt-5">
       <p>Not registered yet?</p>
