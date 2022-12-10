@@ -4,7 +4,7 @@ import TheSidebar from "./components/TheSidebar.vue";
 import axios from "axios";
 import { ref, provide, computed, watch } from "vue";
 
-const BASE_URL = "http://localhost:33867";
+const BASE_URL = "http://localhost:8000";
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 5000,
