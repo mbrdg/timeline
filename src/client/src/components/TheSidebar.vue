@@ -52,15 +52,15 @@ defineEmits(["update:handle", "update:privateKey"]);
         placeholder="What page do you want to go to?"
       />
     </form>
+    <p v-if="notFound" class="text-red-500">
+      No user or topic matches your search. Please try again.
+    </p>
     <div class="flex gap-2 text-xl mt-5">
       <p>Go to your</p>
       <RouterLink class="text-accent" :to="`/${handle}`"
         >profile page</RouterLink
       >
     </div>
-    <p v-if="notFound" class="text-red-500">
-      No user or topic matches your search. Please try again.
-    </p>
 
     <div class="text-2xl text-accent pt-16">These are your informations:</div>
     <label class="text-xl my-5">Your handle:</label>

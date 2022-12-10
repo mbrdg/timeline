@@ -76,6 +76,13 @@ async function like() {
       });
     likeCount.count++;
     isLiked.isLiked = true;
+  } else {
+    await api.post("/remove/like", {
+      handle: handle.value,
+      signature: signature,
+    });
+    likeCount.count--;
+    isLiked.isLiked = false;
   }
 }
 
@@ -89,6 +96,13 @@ async function repost() {
     });
     repostCount.count++;
     isReposted.isReposted = true;
+  } else {
+    await api.post("/remove/repost", {
+      handle: handle.value,
+      signature: signature,
+    });
+    repostCount.count--;
+    isReposted.isReposted = false;
   }
 }
 
@@ -96,7 +110,7 @@ function highlightTopics(text: string) {
   console.log(text);
   return text.replace(new RegExp(/(^|\W)#\w+/gi, "gi"), (match) => {
     console.log(match);
-    return "<a href='#' class='text-accent hover:underline'>" + match + "</a>";
+    return `<span class='text-accent'>${match}</span>`;
   });
 }
 </script>
@@ -106,8 +120,8 @@ function highlightTopics(text: string) {
     class="container flex flex-col bg-lightdark rounded-md p-5 my-2 gap-2 shadow-md"
   >
     <div class="flex flex-col justify-between">
-      <div class="font-semibold text-lg hover:underline">
-        <RouterLink :to="`/${post.handle}`">
+      <div class="font-semibold text-lg">
+        <RouterLink :to="`/${post.handle}`" class="hover:underline">
           {{ post.handle }}
         </RouterLink>
       </div>
