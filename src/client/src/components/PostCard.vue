@@ -6,7 +6,7 @@ import * as jose from "jose";
 export interface PostCard {
   post: Post;
   name: string;
-  id: string;
+  id?: string;
 }
 const props = defineProps<PostCard>();
 const api = inject("api") as AxiosInstance;
@@ -63,6 +63,7 @@ const signId = async (id: string) => {
 };
 
 async function like() {
+  if (!props.id) return;
   const signature = await signId(props.id);
   if (!isLiked.isLiked) {
     await api
@@ -79,6 +80,7 @@ async function like() {
 }
 
 async function repost() {
+  if (!props.id) return;
   const signature = await signId(props.id);
   if (!isReposted.isReposted) {
     await api.post("/repost", {
@@ -100,9 +102,6 @@ function highlightTopics(text: string) {
 </script>
 
 <template>
-  <div class="mx-2 mt-2" v-if="props.name !== post.handle">
-    <div class="text-xl">{{ props.name }} reposted</div>
-  </div>
   <div
     class="container flex flex-col bg-lightdark rounded-md p-5 my-2 gap-2 shadow-md"
   >
@@ -118,7 +117,7 @@ function highlightTopics(text: string) {
     </div>
     <div v-html="highlightTopics(post.content)"></div>
     <div class="flex-grow h-px bg-dark mt-2 opacity-70"></div>
-    <div class="flex flex-row justify-around">
+    <div v-if="id" class="flex flex-row justify-around">
       <form @submit.prevent="repost" class="flex flex-row gap-1">
         <button v-if="isReposted.isReposted">
           <img src="@/assets/repeat_filled.svg" />
