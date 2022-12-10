@@ -99,7 +99,11 @@ async function repost() {
     class="container flex flex-col bg-lightdark rounded-md p-5 my-2 gap-2 shadow-md"
   >
     <div class="flex flex-col justify-between">
-      <div class="font-semibold text-lg">{{ post.handle }}</div>
+      <div class="font-semibold text-lg hover:underline">
+        <RouterLink :to="`/${post.handle}`">
+          {{ post.handle }}
+        </RouterLink>
+      </div>
       <div class="font-light text-sm">
         {{ timeDifference(Date.now(), new Date(post.timestamp).getTime()) }}
       </div>
