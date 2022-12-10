@@ -12,6 +12,11 @@ const api = inject("api") as AxiosInstance;
 
 const route = useRoute();
 
+const emit = defineEmits(["follow"]);
+const updateKey = () => {
+  emit("follow");
+};
+
 const handle = ref("");
 const user = ref<UserInfo>();
 const posts = ref<Map<string, Post>>(new Map<string, Post>());
@@ -57,6 +62,7 @@ onBeforeMount(async () => {
 <template>
   <main class="w-full flex flex-col mx-auto">
     <ProfileDescription
+      @follow="updateKey"
       :name="handle"
       :followers="user?.followers || []"
       :following="user?.following || []"

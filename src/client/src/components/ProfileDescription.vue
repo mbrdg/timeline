@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AxiosInstance } from "axios";
-import { computed, inject, ref, type Ref } from "vue";
+import { computed, inject, type Ref } from "vue";
 import * as jose from "jose";
 
 export interface ProfileDescription {
@@ -10,6 +10,7 @@ export interface ProfileDescription {
 }
 
 const props = defineProps<ProfileDescription>();
+const emit = defineEmits(["follow"]);
 
 const api = inject("api") as AxiosInstance;
 const handle = inject("handle") as Ref<string>;
@@ -24,10 +25,8 @@ const canInteract = computed(() => {
 });
 
 const canFollow = computed(() => {
-  return !props.followers.includes(handle.value) || justFollowed.value;
+  return !props.followers.includes(handle.value);
 });
-
-const justFollowed = ref(false);
 
 async function unfollowUser() {
   const from = handle.value;
@@ -46,8 +45,8 @@ async function unfollowUser() {
     });
 
   if (response) {
+    emit("follow");
     console.log(`${from} just unfollowed ${to}`);
-    justFollowed.value = true;
   }
 }
 
@@ -83,7 +82,7 @@ async function followUser() {
 
   if (response) {
     console.log(`${from} just followed ${props.name}`);
-    justFollowed.value = false;
+    emit("follow");
   }
 }
 </script>

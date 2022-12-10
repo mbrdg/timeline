@@ -2,9 +2,9 @@
 import { RouterView, useRoute } from "vue-router";
 import TheSidebar from "./components/TheSidebar.vue";
 import axios from "axios";
-import { ref, provide, computed } from "vue";
+import { ref, provide, computed, watch } from "vue";
 
-const BASE_URL = "http://localhost:38119";
+const BASE_URL = "http://localhost:43461";
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 5000,
@@ -26,6 +26,11 @@ const isRegister = computed(() => {
   return route.path === "/register";
 });
 
+const update = ref(0);
+
+const updateKey = () => update.value++;
+watch(() => route.fullPath, updateKey);
+
 const getHandle = () => {
   let user = sessionStorage.getItem("handle");
   if (user) {
@@ -37,7 +42,12 @@ const getHandle = () => {
 <template>
   <div id="wrapper" class="grid grid-cols-3 min-h-full bg-dark text-light">
     <aside></aside>
-    <RouterView @registered="getHandle" @pk-invalid="notifySidebar" />
+    <RouterView
+      :key="update"
+      @follow="updateKey"
+      @registered="getHandle"
+      @pk-invalid="notifySidebar"
+    />
     <TheSidebar
       v-if="!isRegister"
       :key-invalid="keyInvalid"
