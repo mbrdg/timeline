@@ -146,7 +146,7 @@ const main = async () => {
         const userCID = createCID({ handle: handle });
         const value = JSON.stringify(user);
         
-        console.info(`🆕 Received a register request from ${handle}\n`);
+        console.info(`🆕 Received a register request from ${handle}`);
         
         const validate = () =>
             importSPKI(key, algorithm)
@@ -164,7 +164,7 @@ const main = async () => {
         const { handle } = req.params as Pick<TLUser, 'handle'>;
         const userCID = createCID({ handle: handle });
 
-        console.info(`💡 Received a request for the profile of ${handle}\n`);
+        console.info(`💡 Received a request for the profile of ${handle}`);
 
         get<TLUser>(userCID)
             .then(user => res.status(302).send(user))
@@ -177,7 +177,7 @@ const main = async () => {
 
         type TLTimelineInteraction = (TLPost & Omit<TLInteractionMetadata, 'timestamp'>);
 
-        console.info(`📜 Received a request for the timeline of ${handle}\n`);
+        console.info(`📜 Received a request for the timeline of ${handle}`);
 
         const userTimeline = (handle: TLUserHandle) => {
             const cid = createCID({ handle: handle });
@@ -221,7 +221,7 @@ const main = async () => {
 
         type TLValidationResult = { user: TLUser } & { post: Pick<TLPost, 'content' | 'topics'> };
 
-        console.info(`📥 Received a publishing request from ${handle}\n`);
+        console.info(`📥 Received a publishing request from ${handle}`);
         
         const createPost = (props: TLValidationResult) => {
             if (props.post.content.length === 0)
@@ -294,7 +294,7 @@ const main = async () => {
         const { id } = req.params;
         const key = CID.parse(id);
 
-        console.info(`📤 Received a request for the data of the post: ${id}\n`);
+        console.info(`📤 Received a request for the data of the post: ${id}`);
 
         get<TLPost>(key)
             .then(post => res.status(302).send(post))
@@ -307,7 +307,7 @@ const main = async () => {
 
         type TLTopicFetch = TLPost & { id: TLPostId };
     
-        console.info(`🏷️  Received a request for the timeline of the topic: ${topic}\n`);
+        console.info(`🏷️  Received a request for the timeline of the topic: ${topic}`);
 
         const topicPosts = (topic: TLTopic) => {
             return Promise.all(topic.timeline.map(post => {
@@ -332,7 +332,7 @@ const main = async () => {
 
         type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
 
-        console.info(`🔁 Received a repost request from ${handle}\n`);
+        console.info(`🔁 Received a repost request from ${handle}`);
 
         const updatePost = (props: TLValidatorInteraction) => {
             const postCID = CID.parse(props.post);
@@ -380,7 +380,7 @@ const main = async () => {
 
         type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
         
-        console.info(`❤️  Received a like request from ${handle}\n`);
+        console.info(`❤️  Received a like request from ${handle}`);
 
         const updatePost = (props: TLValidatorInteraction) => {
             const postCID = CID.parse(props.post);
@@ -428,7 +428,7 @@ const main = async () => {
 
         type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
 
-        console.info(`💔 Received an unlike request from ${handle}\n`);
+        console.info(`💔 Received an unlike request from ${handle}`);
 
         const updatePost = (props: TLValidatorInteraction) => {
             const postCID = CID.parse(props.post);
@@ -474,7 +474,7 @@ const main = async () => {
 
         type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
 
-        console.info(`↩️  Received an unrepost request from ${handle}\n`);
+        console.info(`↩️  Received an unrepost request from ${handle}`);
 
         const updatePost = (props: TLValidatorInteraction) => {
             const postCID = CID.parse(props.post);
@@ -520,7 +520,7 @@ const main = async () => {
         interface TLUserCID { handle: TLUserHandle, cid: CID }
         type TLValidatorFollow = { from: TLUser } & { to: TLUserCID };
 
-        console.info(`🫂  Received a follow request from ${from}\n`);
+        console.info(`🫂  Received a follow request from ${from}`);
 
         const followed = (props: TLValidatorFollow) => get<TLUser>(props.to.cid)
             .then(value => update<TLUser>(value, user => {
@@ -566,7 +566,7 @@ const main = async () => {
         interface TLUserCID { handle: TLUserHandle, cid: CID }
         type TLValidatorUnfollow = { from: TLUser } & { to: TLUserCID };
 
-        console.info(`🪦  Received an unfollow request from ${from}\n`);
+        console.info(`🪦  Received an unfollow request from ${from}`);
 
         const unfollowed = (props: TLValidatorUnfollow) => get<TLUser>(props.to.cid)
                 .then(value => update<TLUser>(value, user => {
@@ -607,7 +607,7 @@ const main = async () => {
 
     const httpServer = app.listen(port, hostname, () => {
         const address = httpServer.address() as AddressInfo;
-        console.info(`🐦 Server running at http://${hostname}:${address.port}\n`);
+        console.info(`🐦 Server running at http://${hostname}:${address.port}`);
     });
 }
 
