@@ -66,7 +66,7 @@ const errorMessage = ref("");
           </div>
           <div class="flex flex-1 flex-wrap">
             <input
-              type="password"
+              type="text"
               placeholder="Please enter your public key"
               class="bg-transparent border-0 mb-1 p-0 w-full focus:outline-none"
               v-model="key"

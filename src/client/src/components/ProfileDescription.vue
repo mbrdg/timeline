@@ -115,11 +115,19 @@ async function followUser() {
     <div class="flex gap-7 text-xl">
       <span class="flex gap-2">
         <p>{{ followers.length }}</p>
-        <p class="text-accent">Followers</p>
+        <RouterLink
+          :to="`/list/followers/${name}`"
+          class="hover:underline text-accent"
+          >Followers</RouterLink
+        >
       </span>
       <span class="flex gap-2">
         <p>{{ following.length }}</p>
-        <p class="text-accent">Following</p>
+        <RouterLink
+          :to="`/list/following/${name}`"
+          class="text-accent hover:underline"
+          >Following</RouterLink
+        >
       </span>
     </div>
   </section>

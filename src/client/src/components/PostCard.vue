@@ -134,26 +134,26 @@ function highlightTopics(text: string) {
           <img src="@/assets/repeat_filled.svg" />
         </button>
         <button v-else><img src="@/assets/repeat.svg" /></button>
-        <div>
+        <RouterLink :to="`/list/reposts/${id}`" class="hover:underline">
           {{
             computed(() => {
               return repostCount.count;
             })
           }}
-        </div>
+        </RouterLink>
       </form>
       <form @submit.prevent="like" class="flex flex-row gap-1">
         <button v-if="isLiked.isLiked">
           <img src="@/assets/heart_filled.svg" />
         </button>
         <button v-else><img src="@/assets/heart.svg" /></button>
-        <div>
+        <RouterLink :to="`/list/likes/${id}`" class="hover:underline">
           {{
             computed(() => {
               return likeCount.count;
             })
           }}
-        </div>
+        </RouterLink>
       </form>
     </div>
   </div>
