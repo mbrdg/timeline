@@ -145,6 +145,8 @@ const main = async () => {
     console.debug(`✅ Connected peer ${connection.remotePeer.toString()}`);
 
     const toStore = cache.keys();
+    if (toStore.length === 0) return;
+    console.info(`📨 Transferring the data from the cache to the dht`);
     toStore.map((key) => {
       const cid = CID.parse(key);
       const storedValue = cache.take(key);
@@ -173,9 +175,10 @@ const main = async () => {
       following: [],
       timeline: [],
     };
-
     const userCID = createCID({ handle: handle });
     const value = JSON.stringify(user);
+
+    console.info(`🆕 Received a register request from ${handle}`);
 
     const validate = () =>
       importSPKI(key, algorithm).catch(() => {
@@ -198,6 +201,8 @@ const main = async () => {
     const { handle } = req.params as Pick<TLUser, "handle">;
     const userCID = createCID({ handle: handle });
 
+    console.info(`💡 Received a request for the profile of ${handle}`);
+
     get<TLUser>(userCID)
       .then((user) => res.status(302).send(user))
       .catch(() =>
@@ -209,6 +214,11 @@ const main = async () => {
     const { handle } = req.params as Pick<TLUser, "handle">;
     const key = createCID({ handle: handle });
 
+    type TLTimelineInteraction = TLPost &
+      Omit<TLInteractionMetadata, "timestamp">;
+
+    console.info(`📜 Received a request for the timeline of ${handle}`);
+
     const userTimeline = (handle: TLUserHandle) => {
       const cid = createCID({ handle: handle });
       return get<TLUser>(cid)
@@ -218,8 +228,6 @@ const main = async () => {
         });
     };
 
-    type TLTimelineInteraction = TLPost &
-      Omit<TLInteractionMetadata, "timestamp">;
     const timelinePosts = (interactions: TLInteractionMetadata[]) => {
       return Promise.all(
         interactions.map((post) => {
@@ -259,13 +267,14 @@ const main = async () => {
   app.post("/publish", (req, res) => {
     const { handle, signature } = req.body as TLSignedInteraction;
     const timestamp = new Date();
-
     const userCID = createCID({ handle: handle });
     const postCID = createCID({ handle: handle, timestamp: timestamp });
 
     type TLValidationResult = { user: TLUser } & {
       post: Pick<TLPost, "content" | "topics">;
     };
+
+    console.info(`📥 Received a publishing request from ${handle}`);
 
     const createPost = (props: TLValidationResult) => {
       if (props.post.content.length === 0)
@@ -351,6 +360,8 @@ const main = async () => {
     const { id } = req.params;
     const key = CID.parse(id);
 
+    console.info(`📤 Received a request for the data of the post: ${id}`);
+
     get<TLPost>(key)
       .then((post) => res.status(302).send(post))
       .catch(() => res.status(404).send({ message: `Post not found` }));
@@ -361,6 +372,11 @@ const main = async () => {
     const key = createCID({ topic: topic });
 
     type TLTopicFetch = TLPost & { id: TLPostId };
+
+    console.info(
+      `🏷️  Received a request for the timeline of the topic: ${topic}`
+    );
+
     const topicPosts = (topic: TLTopic) => {
       return Promise.all(
         topic.timeline.map((post) => {
@@ -385,6 +401,8 @@ const main = async () => {
     const userCID = createCID({ handle: handle });
 
     type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
+
+    console.info(`🔁 Received a repost request from ${handle}`);
 
     const updatePost = (props: TLValidatorInteraction) => {
       const postCID = CID.parse(props.post);
@@ -443,11 +461,11 @@ const main = async () => {
 
   app.post("/like", (req, res) => {
     const { handle, signature } = req.body as TLSignedInteraction;
-    console.info(`🐦 Received like request from ${handle}}\n`);
-
     const userCID = createCID({ handle: handle });
 
     type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
+
+    console.info(`❤️  Received a like request from ${handle}`);
 
     const updatePost = (props: TLValidatorInteraction) => {
       const postCID = CID.parse(props.post);
@@ -509,6 +527,8 @@ const main = async () => {
     const userCID = createCID({ handle: handle });
 
     type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
+
+    console.info(`💔 Received an unlike request from ${handle}`);
 
     const updatePost = (props: TLValidatorInteraction) => {
       const postCID = CID.parse(props.post);
@@ -575,6 +595,8 @@ const main = async () => {
     const userCID = createCID({ handle: handle });
 
     type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
+
+    console.info(`↩️  Received an unrepost request from ${handle}`);
 
     const updatePost = (props: TLValidatorInteraction) => {
       const postCID = CID.parse(props.post);
@@ -645,6 +667,8 @@ const main = async () => {
     }
     type TLValidatorFollow = { from: TLUser } & { to: TLUserCID };
 
+    console.info(`🫂  Received a follow request from ${from}`);
+
     const followed = (props: TLValidatorFollow) =>
       get<TLUser>(props.to.cid)
         .then((value) =>
@@ -700,11 +724,9 @@ const main = async () => {
       .then(followed)
       .then(follower)
       .then((props) =>
-        res
-          .status(200)
-          .send({
-            message: `${props.from.handle} now follows ${props.to.handle}`,
-          })
+        res.status(200).send({
+          message: `${props.from.handle} now follows ${props.to.handle}`,
+        })
       )
       .catch((err: Error) => res.status(400).send({ message: err.message }));
   });
@@ -718,6 +740,8 @@ const main = async () => {
       cid: CID;
     }
     type TLValidatorUnfollow = { from: TLUser } & { to: TLUserCID };
+
+    console.info(`🪦  Received an unfollow request from ${from}`);
 
     const unfollowed = (props: TLValidatorUnfollow) =>
       get<TLUser>(props.to.cid)
@@ -777,11 +801,9 @@ const main = async () => {
       .then(unfollower)
       .then(unfollowed)
       .then((props) =>
-        res
-          .status(200)
-          .send({
-            message: `${props.from.handle} no longer follows ${props.to.handle}`,
-          })
+        res.status(200).send({
+          message: `${props.from.handle} no longer follows ${props.to.handle}`,
+        })
       )
       .catch((err: Error) => res.status(400).send({ message: err.message }));
   });
