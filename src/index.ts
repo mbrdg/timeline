@@ -307,7 +307,7 @@ const main = async () => {
 
         type TLTopicFetch = TLPost & { id: TLPostId };
     
-        console.info(`🏷️ Received a request for the timeline of the topic: ${topic}\n`);
+        console.info(`🏷️  Received a request for the timeline of the topic: ${topic}\n`);
 
         const topicPosts = (topic: TLTopic) => {
             return Promise.all(topic.timeline.map(post => {
@@ -380,7 +380,7 @@ const main = async () => {
 
         type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
         
-        console.info(`❤️ Received a like request from ${handle}\n`);
+        console.info(`❤️  Received a like request from ${handle}\n`);
 
         const updatePost = (props: TLValidatorInteraction) => {
             const postCID = CID.parse(props.post);
@@ -474,7 +474,7 @@ const main = async () => {
 
         type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
 
-        console.info(`↩️ Received an unrepost request from ${handle}\n`);
+        console.info(`↩️  Received an unrepost request from ${handle}\n`);
 
         const updatePost = (props: TLValidatorInteraction) => {
             const postCID = CID.parse(props.post);
@@ -520,7 +520,7 @@ const main = async () => {
         interface TLUserCID { handle: TLUserHandle, cid: CID }
         type TLValidatorFollow = { from: TLUser } & { to: TLUserCID };
 
-        console.info(`🫂 Received a follow request from ${from}\n`);
+        console.info(`🫂  Received a follow request from ${from}\n`);
 
         const followed = (props: TLValidatorFollow) => get<TLUser>(props.to.cid)
             .then(value => update<TLUser>(value, user => {
@@ -566,7 +566,7 @@ const main = async () => {
         interface TLUserCID { handle: TLUserHandle, cid: CID }
         type TLValidatorUnfollow = { from: TLUser } & { to: TLUserCID };
 
-        console.info(`🪦 Received an unfollow request from ${from}\n`);
+        console.info(`🪦  Received an unfollow request from ${from}\n`);
 
         const unfollowed = (props: TLValidatorUnfollow) => get<TLUser>(props.to.cid)
                 .then(value => update<TLUser>(value, user => {
@@ -607,7 +607,7 @@ const main = async () => {
 
     const httpServer = app.listen(port, hostname, () => {
         const address = httpServer.address() as AddressInfo;
-        console.info(`🐦 Server running at http://${hostname}:${address.port}`);
+        console.info(`🐦 Server running at http://${hostname}:${address.port}\n`);
     });
 }
 
