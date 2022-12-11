@@ -16,7 +16,6 @@ const posts = ref<Map<string, [Post, PostInteraction]>>(
 );
 
 async function fetchTimeline() {
-  console.log(props.timeline);
   const postIDsAux = props.timeline
     .filter((i) => i.interaction !== PostInteraction.LIKE)
     .sort((objA, objB) => {

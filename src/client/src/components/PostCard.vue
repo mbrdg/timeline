@@ -5,8 +5,7 @@ import { inject, computed, reactive, type Ref } from "vue";
 import * as jose from "jose";
 export interface PostCard {
   post: Post;
-  name: string;
-  id?: string;
+  id: string;
 }
 const props = defineProps<PostCard>();
 const api = inject("api") as AxiosInstance;
@@ -14,11 +13,11 @@ const handle = inject("handle") as Ref<string>;
 const key = inject("key") as Ref<string>;
 
 const likeCount = reactive({ count: props.post.likes.length });
-const isLiked = reactive({ isLiked: props.post.likes.includes(props.name) });
+const isLiked = reactive({ isLiked: props.post.likes.includes(handle.value) });
 
 const repostCount = reactive({ count: props.post.reposts.length });
 const isReposted = reactive({
-  isReposted: props.post.reposts.includes(props.name),
+  isReposted: props.post.reposts.includes(handle.value),
 });
 
 function timeDifference(current: number, previous: number) {
@@ -63,7 +62,6 @@ const signId = async (id: string) => {
 };
 
 async function like() {
-  if (!props.id) return;
   const signature = await signId(props.id);
   if (!isLiked.isLiked) {
     await api
@@ -87,7 +85,6 @@ async function like() {
 }
 
 async function repost() {
-  if (!props.id) return;
   const signature = await signId(props.id);
   if (!isReposted.isReposted) {
     await api.post("/repost", {
@@ -131,7 +128,7 @@ function highlightTopics(text: string) {
     </div>
     <div v-html="highlightTopics(post.content)"></div>
     <div class="flex-grow h-px bg-dark mt-2 opacity-70"></div>
-    <div v-if="id" class="flex flex-row justify-around">
+    <div class="flex flex-row justify-around">
       <form @submit.prevent="repost" class="flex flex-row gap-1">
         <button v-if="isReposted.isReposted">
           <img src="@/assets/repeat_filled.svg" />
