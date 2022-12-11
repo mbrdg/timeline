@@ -1,6 +1,6 @@
 # SDLE Second Assignment
 
-## Timeline
+## Timeline 📝
 
 SDLE Second Assignment of group T04G14.
 
