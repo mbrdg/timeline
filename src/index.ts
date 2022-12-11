@@ -318,18 +318,19 @@ const main = async () => {
 
         type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
 
-        const updatePost = (id: TLPostId) => {
-            const postCID = CID.parse(id);
+        const updatePost = (props: TLValidatorInteraction) => {
+            const postCID = CID.parse(props.post);
             return get<TLPost>(postCID)
                 .then(value => update<TLPost>(value, post => {
                     if (post.reposts.includes(handle))
-                        throw new Error(`${handle} already reposted ${id}`);
+                        throw new Error(`${handle} already reposted ${props.post}`);
 
                     post.reposts.push(handle);
                     return post;
                 }))
                 .then(value => put(postCID, value, `Unable to update the post with the repost information`))
-                .catch(err => { throw err; });
+                .then(() => props)
+                .catch(err => Promise.reject(err));
         };
 
         const updateUser = (props: TLValidatorInteraction) => {
@@ -342,6 +343,7 @@ const main = async () => {
             props.user.timeline.push(interaction);
             const value = JSON.stringify(props.user);
             put(userCID, value, `Unable to respost ${props.post} to the timeline of ${handle}`);
+            return props;
         };
 
         get<TLUser>(userCID)
@@ -350,10 +352,9 @@ const main = async () => {
                 signature,
                 (post: Pick<TLInteraction, 'id'>) => ({ user, post: post.id }) as TLValidatorInteraction
             ))
-            .then(props => Promise.all([updatePost(props.post), updateUser(props)])
-                    .then(() => res.status(200).send({ id: props.post }))
-                    .catch((err: Error) => { throw err; })
-            )
+            .then(updatePost)
+            .then(updateUser)
+            .then(props => res.status(200).send({ id: props.post }))
             .catch((err: Error) => res.status(400).send({ message: err.message }));
     });
 
@@ -376,7 +377,8 @@ const main = async () => {
                     return post;
                 }))
                 .then(value => put(postCID, value, `Unable to update the post with the like information`))
-                .catch(console.error);
+                .then(() => props)
+                .catch(err => Promise.reject(err));
         };
 
         const updateUser = (props: TLValidatorInteraction) => {
@@ -389,6 +391,7 @@ const main = async () => {
             props.user.timeline.push(interaction);
             const value = JSON.stringify(props.user);
             put(userCID, value, `Unable to add the like of ${props.post} to the timeline of ${handle}`);
+            return props;
         };
 
         get<TLUser>(userCID)
@@ -397,10 +400,9 @@ const main = async () => {
                 signature,
                 (post: Pick<TLInteraction, 'id'>) => ({ user, post: post.id }) as TLValidatorInteraction
             ))
-            .then(props => Promise.all([updatePost(props), updateUser(props)])
-                .then(() => res.status(200).send({ id: props.post }))
-                .catch((err: Error) => { throw err; })
-            )
+            .then(updatePost)
+            .then(updateUser)
+            .then(props => res.status(200).send({ id: props.post }))
             .catch((err: Error) => res.status(400).send({ message: err.message }));
     });
 
@@ -423,7 +425,7 @@ const main = async () => {
                 }))
                 .then(value => put(postCID, value, `Unable to update the post with the like information`))
                 .then(() => props)
-                .catch((err: Error) => { throw err; });
+                .catch((err: Error) => Promise.reject(err));
         };
 
         const updateUser = (props: TLValidatorInteraction) => {
@@ -466,7 +468,7 @@ const main = async () => {
                 }))
                 .then(value => put(postCID, value, `Unable to update the post with the repost information`))
                 .then(() => props)
-                .catch(err => { throw err; });
+                .catch(err => Promise.reject(err));
         };
 
         const updateUser = (props: TLValidatorInteraction) => {
@@ -498,16 +500,17 @@ const main = async () => {
         interface TLUserCID { handle: TLUserHandle, cid: CID }
         type TLValidatorFollow = { from: TLUser } & { to: TLUserCID };
 
-        const followed = (to: TLUserCID) => get<TLUser>(to.cid)
+        const followed = (props: TLValidatorFollow) => get<TLUser>(props.to.cid)
             .then(value => update<TLUser>(value, user => {
                 if (user.followers.includes(from))
-                    throw new Error(`${from} already follows ${to.handle}`);
+                    throw new Error(`${from} already follows ${props.to.handle}`);
 
                 user.followers.push(from);
                 return user;
             }))
-            .then(value => put(to.cid, value, `Unable to connect ${from} to ${to.handle}`, false))
-            .catch(console.error);
+            .then(value => put(props.to.cid, value, `Unable to connect ${from} to ${props.to.handle}`, false))
+            .then(() => props)
+            .catch(err => Promise.reject(err));
 
         const follower = (props: TLValidatorFollow) => {
             if (props.from.following.includes(props.to.handle))
@@ -516,6 +519,7 @@ const main = async () => {
             props.from.following.push(props.to.handle);
             const value = JSON.stringify(props.from);
             put(fromCID, value, `Unable to connect ${from} to ${props.to.handle}`, true, props.to.cid);
+            return props;
         };
 
         get<TLUser>(fromCID)
@@ -527,10 +531,9 @@ const main = async () => {
                     return ({ from: user, to }) as TLValidatorFollow;
                 }
             ))
-            .then(props => Promise.all([followed(props.to), follower(props)])
-                .then(() => res.status(200).send({ message: `${props.from.handle} now follows ${props.to.handle}` }))
-                .catch((err: Error) => { throw err; })
-            )
+            .then(followed)
+            .then(follower)
+            .then(props => res.status(200).send({ message: `${props.from.handle} now follows ${props.to.handle}` }))
             .catch((err: Error) => res.status(400).send({ message: err.message }));
     });
 
@@ -541,16 +544,17 @@ const main = async () => {
         interface TLUserCID { handle: TLUserHandle, cid: CID }
         type TLValidatorUnfollow = { from: TLUser } & { to: TLUserCID };
 
-        const unfollowed = (to: TLUserCID) => get<TLUser>(to.cid)
-            .then(value => update<TLUser>(value, user => {
-                if (!user.followers.includes(from))
-                    throw new Error(`${from} does not follow ${user.handle}`);
+        const unfollowed = (props: TLValidatorUnfollow) => get<TLUser>(props.to.cid)
+                .then(value => update<TLUser>(value, user => {
+                    if (!user.followers.includes(from))
+                        throw new Error(`${from} does not follow ${user.handle}`);
 
-                user.followers = user.followers.filter(u => u !== from);
-                return user;
-            }))
-            .then(value => put(to.cid, value, `Unable to remove the connection of ${from} to ${to.handle}`, false))
-            .catch((err: Error) => { throw err; });
+                    user.followers = user.followers.filter(u => u !== from);
+                    return user;
+                }))
+                .then(value => put(props.to.cid, value, `Unable to remove the connection of ${from} to ${props.to.handle}`, false))
+                .then(() => props)
+                .catch((err: Error) => Promise.reject(err));
 
         const unfollower = (props: TLValidatorUnfollow) => {
             if (!props.from.following.includes(props.to.handle))
@@ -558,7 +562,8 @@ const main = async () => {
 
             props.from.following = props.from.following.filter(u => u !== props.to.handle);
             const value = JSON.stringify(props.from);
-            return put(fromCID, value, `Unable to remove the connection of ${from} to ${props.to.handle}`, false);
+            put(fromCID, value, `Unable to remove the connection of ${from} to ${props.to.handle}`, false);
+            return props;
         };
 
         get<TLUser>(fromCID)
@@ -570,10 +575,9 @@ const main = async () => {
                     return ({ from: user, to }) as TLValidatorUnfollow;
                 }
             ))
-            .then(props => Promise.all([unfollowed(props.to), unfollower(props)])
-                .then(() => res.status(200).send({ message: `${props.from.handle} no longer follows ${props.to.handle}` }))
-                .catch((err: Error) => { throw err; })
-            )
+            .then(unfollower)
+            .then(unfollowed)
+            .then(props => res.status(200).send({ message: `${props.from.handle} no longer follows ${props.to.handle}` }))
             .catch((err: Error) => res.status(400).send({ message: err.message }));
     });
 
