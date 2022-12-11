@@ -113,6 +113,8 @@ const main = async () => {
         console.debug(`✅ Connected peer ${connection.remotePeer.toString()}`);
 
         const toStore = cache.keys();
+        if (toStore.length === 0) return;
+        console.info(`📨 Transferring the data from the cache to the dht`);
         toStore.map(key => {
             const cid = CID.parse(key);
             const storedValue = cache.take(key);
@@ -141,10 +143,11 @@ const main = async () => {
             following: [],
             timeline: []
         };
-
         const userCID = createCID({ handle: handle });
         const value = JSON.stringify(user);
-
+        
+        console.info(`🆕 Received a register request from ${handle}\n`);
+        
         const validate = () =>
             importSPKI(key, algorithm)
                 .catch(() => { throw new Error(`The public keys must be in SPKI format`); });
@@ -161,6 +164,8 @@ const main = async () => {
         const { handle } = req.params as Pick<TLUser, 'handle'>;
         const userCID = createCID({ handle: handle });
 
+        console.info(`💡 Received a request for the profile of ${handle}\n`);
+
         get<TLUser>(userCID)
             .then(user => res.status(302).send(user))
             .catch(() => res.status(404).send({ message: `User ${handle} not found` }));
@@ -170,6 +175,10 @@ const main = async () => {
         const { handle } = req.params as Pick<TLUser, 'handle'>;
         const key = createCID({ handle: handle });
 
+        type TLTimelineInteraction = (TLPost & Omit<TLInteractionMetadata, 'timestamp'>);
+
+        console.info(`📜 Received a request for the timeline of ${handle}\n`);
+
         const userTimeline = (handle: TLUserHandle) => {
             const cid = createCID({ handle: handle });
             return get<TLUser>(cid)
@@ -177,7 +186,6 @@ const main = async () => {
                 .catch(() => { throw new Error(`Unable to fetch timeline of ${handle}`)});
         };
 
-        type TLTimelineInteraction = (TLPost & Omit<TLInteractionMetadata, 'timestamp'>);
         const timelinePosts = (interactions: TLInteractionMetadata[]) => {
             return Promise.all(interactions.map(post => {
                 const cid = CID.parse(post.id);
@@ -208,12 +216,13 @@ const main = async () => {
     app.post('/publish', (req, res) => {
         const { handle, signature } = req.body as TLSignedInteraction;
         const timestamp = new Date();
-
         const userCID = createCID({ handle: handle });
         const postCID = createCID({ handle: handle, timestamp: timestamp });
 
         type TLValidationResult = { user: TLUser } & { post: Pick<TLPost, 'content' | 'topics'> };
 
+        console.info(`📥 Received a publishing request from ${handle}\n`);
+        
         const createPost = (props: TLValidationResult) => {
             if (props.post.content.length === 0)
                 throw new Error(`Who does write an empty post?!`);
@@ -285,6 +294,8 @@ const main = async () => {
         const { id } = req.params;
         const key = CID.parse(id);
 
+        console.info(`📤 Received a request for the data of the post: ${id}\n`);
+
         get<TLPost>(key)
             .then(post => res.status(302).send(post))
             .catch(() => res.status(404).send({ message: `Post not found` }));
@@ -295,6 +306,9 @@ const main = async () => {
         const key = createCID({ topic: topic });
 
         type TLTopicFetch = TLPost & { id: TLPostId };
+    
+        console.info(`🏷️ Received a request for the timeline of the topic: ${topic}\n`);
+
         const topicPosts = (topic: TLTopic) => {
             return Promise.all(topic.timeline.map(post => {
                 const cid = CID.parse(post);
@@ -317,6 +331,8 @@ const main = async () => {
         const userCID = createCID({ handle: handle });
 
         type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
+
+        console.info(`🔁 Received a repost request from ${handle}\n`);
 
         const updatePost = (props: TLValidatorInteraction) => {
             const postCID = CID.parse(props.post);
@@ -360,11 +376,11 @@ const main = async () => {
 
     app.post('/like', (req, res) => {
         const { handle, signature } = req.body as TLSignedInteraction;
-        console.info(`🐦 Received like request from ${handle}}\n`);
-
         const userCID = createCID({ handle: handle });
 
         type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
+        
+        console.info(`❤️ Received a like request from ${handle}\n`);
 
         const updatePost = (props: TLValidatorInteraction) => {
             const postCID = CID.parse(props.post);
@@ -412,6 +428,8 @@ const main = async () => {
 
         type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
 
+        console.info(`💔 Received an unlike request from ${handle}\n`);
+
         const updatePost = (props: TLValidatorInteraction) => {
             const postCID = CID.parse(props.post);
 
@@ -455,6 +473,8 @@ const main = async () => {
         const userCID = createCID({ handle: handle });
 
         type TLValidatorInteraction = { user: TLUser } & { post: TLPostId };
+
+        console.info(`↩️ Received an unrepost request from ${handle}\n`);
 
         const updatePost = (props: TLValidatorInteraction) => {
             const postCID = CID.parse(props.post);
@@ -500,6 +520,8 @@ const main = async () => {
         interface TLUserCID { handle: TLUserHandle, cid: CID }
         type TLValidatorFollow = { from: TLUser } & { to: TLUserCID };
 
+        console.info(`🫂 Received a follow request from ${from}\n`);
+
         const followed = (props: TLValidatorFollow) => get<TLUser>(props.to.cid)
             .then(value => update<TLUser>(value, user => {
                 if (user.followers.includes(from))
@@ -543,6 +565,8 @@ const main = async () => {
 
         interface TLUserCID { handle: TLUserHandle, cid: CID }
         type TLValidatorUnfollow = { from: TLUser } & { to: TLUserCID };
+
+        console.info(`🪦 Received an unfollow request from ${from}\n`);
 
         const unfollowed = (props: TLValidatorUnfollow) => get<TLUser>(props.to.cid)
                 .then(value => update<TLUser>(value, user => {
