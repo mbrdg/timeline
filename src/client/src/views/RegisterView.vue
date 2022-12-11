@@ -9,7 +9,7 @@ const emit = defineEmits(["registered"]);
 
 async function register(handle: string, key: string) {
   const response = await api
-    .post("/register", { handle, publicKey: key })
+    .post("/register", { handle, key })
     .catch((error) => {
       console.error("Error registering user:", error.message, error.code);
       registerError.value = true;

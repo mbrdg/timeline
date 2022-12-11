@@ -75,7 +75,7 @@ async function like() {
     likeCount.count++;
     isLiked.isLiked = true;
   } else {
-    await api.post("/remove/like", {
+    await api.post("/unlike", {
       handle: handle.value,
       signature: signature,
     });
@@ -94,7 +94,7 @@ async function repost() {
     repostCount.count++;
     isReposted.isReposted = true;
   } else {
-    await api.post("/remove/repost", {
+    await api.post("/unrepost", {
       handle: handle.value,
       signature: signature,
     });
