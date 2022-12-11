@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import PostCreationCard from "../components/PostCreationCard.vue";
-import { inject, type Ref, watch } from "vue";
+import { inject, type Ref } from "vue";
 import HomeTimeline from "../components/HomeTimeline.vue";
 
 const key = inject("key") as Ref<string>;
@@ -23,7 +23,6 @@ const notifySidebar = () => {
       :handle="handle"
       :private-key="key"
     />
-    <!-- Insert timeline here when available -->
     <HomeTimeline :key="handle" :handle="handle" />
   </main>
 </template>

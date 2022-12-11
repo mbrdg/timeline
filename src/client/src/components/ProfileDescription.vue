@@ -28,28 +28,6 @@ const canFollow = computed(() => {
   return !props.followers.includes(handle.value);
 });
 
-async function unfollowUser() {
-  const from = handle.value;
-  const to = props.name;
-  const response = await api
-    .post("/unfollow", {
-      from,
-      to,
-    })
-    .catch((error) => {
-      console.error(
-        "Error sending unfollow request",
-        error.code,
-        error.message
-      );
-    });
-
-  if (response) {
-    emit("follow");
-    console.log(`${from} just unfollowed ${to}`);
-  }
-}
-
 const signTo = async (to: string) => {
   const algorithm = "RS512";
   try {
@@ -67,6 +45,28 @@ const signTo = async (to: string) => {
     console.error(error);
   }
 };
+
+async function unfollowUser() {
+  const from = handle.value;
+  const signature = await signTo(props.name);
+  const response = await api
+    .post("/unfollow", {
+      from,
+      signature: signature,
+    })
+    .catch((error) => {
+      console.error(
+        "Error sending unfollow request",
+        error.code,
+        error.message
+      );
+    });
+
+  if (response) {
+    emit("follow");
+    console.log(`${from} just unfollowed ${props.name}`);
+  }
+}
 
 async function followUser() {
   const from = handle.value;

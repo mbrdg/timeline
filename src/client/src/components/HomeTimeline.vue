@@ -20,11 +20,14 @@ async function fetchTimeline() {
       return status == 302;
     },
   });
+
   if (userData.status == 404) return;
-  else console.log("made it");
+
   const timelineData = await api.get("/timeline/" + props.handle);
   const postsAux = timelineData.data.sort((objA: Post, objB: Post) => {
-    return new Date(objB.timestamp).getTime() - new Date(objA.timestamp).getTime();
+    return (
+      new Date(objB.timestamp).getTime() - new Date(objA.timestamp).getTime()
+    );
   });
   for (let post of postsAux) {
     posts.value.set(post.id, [post as Post, post.interaction, post.who]);
@@ -40,7 +43,9 @@ onMounted(async () => {
   <section class="self-start pt-10 w-full">
     <h1 class="font-bold text-5xl">Timeline</h1>
     <div v-for="[key, value] in posts" v-bind:key="key" class="flex flex-col">
-      <div v-if="value[1] == PostInteraction.REPOST">{{ value[2] }} reposted</div>
+      <div v-if="value[1] == PostInteraction.REPOST">
+        {{ value[2] }} reposted
+      </div>
       <PostCard :post="value[0]" :id="key" />
     </div>
   </section>
