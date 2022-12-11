@@ -261,7 +261,7 @@ const main = async () => {
       )
       .then(timelinePosts)
       .then((mixed) => res.status(200).send(mixed))
-      .catch((err: Error) => res.send(400).send({ message: err.message }));
+      .catch((err: Error) => res.status(400).send({ message: err.message }));
   });
 
   app.post("/publish", (req, res) => {
