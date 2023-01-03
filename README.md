@@ -21,5 +21,5 @@ The structure of the project follows the structure below.
 ├── README.md
 └── src
     ├── api             # Service's back-end implmentation
-    └── client          # Service's UI prorotype
+    └── client          # Service's UI prototype
 ```
